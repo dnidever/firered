@@ -44,9 +44,9 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   ;For i=1,norders-1 do begin
   For i=20,20 do begin     
     print,'order = ',i
-    outobj1 = fire_extract_order(tstr[i],imobj,errobj)
+    outobj1 = FIRE_EXTRACT_ORDER(tstr[i],imobj,errobj)
     outobj[i].data = ptr_new(outobj1)
-    outarc1 = fire_extract_order(tstr[i],imarc,errarc,/arc)
+    outarc1 = FIRE_EXTRACT_ORDER(tstr[i],imarc,errarc,/arc)
     outarc[i].data = ptr_new(outarc1)    
     ;stop
   Endfor
@@ -56,14 +56,15 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   ;; Write a program that will fit the trace using a bright star.
 
   data = *outobj[20].data
-  linefit2d,data.recim,data.recerr,out
+  FIRE_LINEFIT2D,data.recim,data.recerr,linestr1,model1
+  ;; sometimes can pick up some more sky lines with a second round
+  FIRE_LINEFIT2D,data.recim-model1,data.recerr,linestr2,model2
+
+  
+  data = *outarc[20].data
+  FIRE_LINEFIT2D,data.recim,data.recerr,linestr1,model1
   
   ;; put in 2D spectrum array?
-
-  ;; write a separate function to fit the sky lines (and arc lines?)
-  ;; 5 parameters: gaussian height, gaussian width, central position,
-  ;;               slope of Y wrt X, offset
-
   
   stop
 

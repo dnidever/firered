@@ -1,6 +1,8 @@
 function fire_extract_order,tstr,im,err,arc=arc
 
-  npix = 2038
+  ;; maybe use fire_rectify_order.pro here
+  
+  npix = 2048
   x = findgen(npix)
   xx = findgen(npix)#replicate(1,npix)
   yy = replicate(1,npix)#findgen(npix)
