@@ -1,4 +1,4 @@
-function fire_trace_order,bstr,im,err
+pro fire_trace_order,bstr,im,err,tstr,tcoef
 
   ;; Trace a stellar aperture in one order
 
@@ -70,7 +70,6 @@ function fire_trace_order,bstr,im,err
 
   ;; Should the trace fit use X-values WITHIN the subregion or the
   ;; FULL array????
-  
   
   stop
 
