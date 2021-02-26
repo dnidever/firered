@@ -1,4 +1,4 @@
-pro fire_trace_order,bstr,im,err,tstr,tcoef
+pro fire_trace_order,bstr,im,err,tstr,tcoef,sigcoef
 
   ;; Trace a stellar aperture in one order
 
@@ -32,7 +32,8 @@ pro fire_trace_order,bstr,im,err,tstr,tcoef
   ;; Loop over columns and find peaks
   step = 20
   nbin = 40
-  tstr = replicate({num:0,xmed:0.0,pars:fltarr(4),perror:fltarr(4),flux:0.0,status:0},subnx/step)
+  tstr = replicate({num:0,xmed:0.0,pars:fltarr(4),perror:fltarr(4),flux:0.0,status:0,bad:0},subnx/step)
+  
   For i=0,subnx/step-1 do begin
     xmed = i*step+step/2
     xlo = xmed-nbin/2 > 0
@@ -51,7 +52,7 @@ pro fire_trace_order,bstr,im,err,tstr,tcoef
     parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
     parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
     parinfo[1].limited = 1     & parinfo[1].limits = [0.8,1.2]*estimates[1]
-    parinfo[2].limited = 1     & parinfo[2].limits = [2,5]
+    parinfo[2].limited = 1     & parinfo[2].limits = [2,10]
     parinfo[3].limited = 1     & parinfo[3].limits = [0.5,1.5]*estimates[3]
     pars = mpfitfun('gaussian',ysm,sm,mederr,estimates,parinfo=parinfo,$
                     perror=perror,yfit=yfit,status=status,/quiet)
@@ -62,16 +63,31 @@ pro fire_trace_order,bstr,im,err,tstr,tcoef
       tstr[i].pars = pars
       tstr[i].perror = perror
       tstr[i].flux = pars[0]*pars[1]*sqrt(2*!dpi)
+      ;; bad solution at edges
+      if pars[0] lt 2*median(mederr) then tstr[i].bad = 1
     endif
+
   Endfor
 
   ;; Fit polynomial to order
-  tcoef = robust_poly_fit(tstr.xmed,tstr.pars[1],3)
+  gd = where(tstr.status gt 0 and tstr.bad eq 0 and tstr.perror[1] lt 1 and tstr.perror[1] gt 0,ngd)
+  tcoef = robust_poly_fit(tstr[gd].xmed,tstr[gd].pars[1],2)
 
+  ;fit sigma as well, does summing over ~40 columns affect the sigma much??
+  sigcoef = robust_poly_fit(tstr[gd].xmed,tstr[gd].pars[2],2)
+
+  ;plot,tstr[gd].xmed,tstr[gd].pars[2],ps=1
+  ;oplot,tstr.xmed,poly(tstr.xmed,sigcoef),co=60
+  
+  ;; X values are LOCAL and Y values are GLOBAL
+  ;displayc,apim,findgen(subnx),reform(subyy[0,*]),/z
+  ;oplot,tstr.xmed,tstr.pars[1],ps=1
+  ;oplot,tstr.xmed,poly(tstr.xmed,tcoef),co=60
+  
   ;; Should the trace fit use X-values WITHIN the subregion or the
   ;; FULL array????
   
-  stop
+  ;stop
 
  
 end
