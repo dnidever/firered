@@ -20,7 +20,7 @@ function fire_shift,im,sh,dim
       print,'SHIFT array must be equal to NY'
       return,-1
     endif
-     
+    
     ;; Original indices
     xx1 = lindgen(nx)#replicate(1,ny)
     yy1 = replicate(1,nx)#lindgen(ny)
