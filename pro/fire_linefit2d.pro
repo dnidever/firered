@@ -134,6 +134,7 @@ pro fire_linefit2d,tstr,im,err,linestr,model,residim,yrecenter=yrecenter,arc=arc
   
   linestr = replicate({num:0L,pars:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)
   linestr.num = lindgen(nlines)+1
+  lmodel = XXXX
   for j=0,nlines-1 do begin
     ;; Get the subimage
     xlo = min([maxarr1[j],maxarr2[j]])-12 > 0
@@ -204,6 +205,8 @@ pro fire_linefit2d,tstr,im,err,linestr,model,residim,yrecenter=yrecenter,arc=arc
       xcen2 = pars1[2]+(ycen2-pars1[3])*pars1[4]
       linestr[j].xtrace = xcen2
       linestr[j].ytrace = ycen2
+      ;; make 1D model of line
+      ;;lmodel[xlo:xhi] = gaussian(lindgen(xlo:xhi)...,[linestr[j].pars[0],xcen2,linestr[j].pars[1]])
     endif
   endfor
   
