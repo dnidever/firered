@@ -38,8 +38,14 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   errobj = sqrt((imobj>1)/gain)
   errarc = sqrt((imarc>1)/gain)  
 
-  stop
-  ;fire_trace,bstr,imobj,errobj,tstr 
+
+  FIRE_LINEFIT2D,tstr[20],imarc,errarc
+
+
+;; Make images structures with:
+;;   flux, err, mask (good mask), nx, ny, x (global), y (global),
+;;   type (arc, object, quartz)
+;; have a function subim(im,xr,yr) where you can make a cutout
   
   ;; Order loop
   x = findgen(npix)
@@ -47,12 +53,14 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   outobj.order = lindgen(norders)+1
   outarc = replicate({order:0,data:ptr_new()},norders)  
   outarc.order = lindgen(norders)+1
-  ;For i=1,norders-1 do begin
-  For i=20,20 do begin     
+  For i=1,norders-1 do begin
+  ;For i=20,20 do begin     
     print,'order = ',i
-    outobj1 = FIRE_EXTRACT_ORDER(bstr[i],imobj,errobj)
+    undefine,yrecenter
+    outobj1 = FIRE_EXTRACT_ORDER(tstr[i],imobj,errobj,/recenter,yrecenter=yrecenter)
     outobj[i].data = ptr_new(outobj1)
-    outarc1 = FIRE_EXTRACT_ORDER(bstr[i],imarc,errarc,/arc)
+    ;; pass object yrecenter value on to extract arc the same way
+    outarc1 = FIRE_EXTRACT_ORDER(tstr[i],imarc,errarc,/arc,yrecenter=yrecenter)
     outarc[i].data = ptr_new(outarc1)    
     ;stop
   Endfor
@@ -65,10 +73,12 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   
   ;; Write a program that will fit the trace using a bright star.
 
-  data = *outobj[20].data
-  FIRE_LINEFIT2D,data.recim,data.recerr,linestr1,model1
-  ;; sometimes can pick up some more sky lines with a second round
-  FIRE_LINEFIT2D,data.recim-model1,data.recerr,linestr2,model2
+  FIRE_LINEFIT2D,tstr[20],imobj,errobj,linestr,model,residim  ;,yrecenter=yrecenter,arc=arc
+  
+  ;data = *outobj[20].data
+  ;FIRE_LINEFIT2D,data.recim,data.recerr,linestr1,model1
+  ;;; sometimes can pick up some more sky lines with a second round
+  ;FIRE_LINEFIT2D,data.recim-model1,data.recerr,linestr2,model2
 
   
 ;; For an object spectrum, rectify the order, sum over all columns and
