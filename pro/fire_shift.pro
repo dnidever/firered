@@ -1,20 +1,16 @@
-function fire_shift,im,sh,dim=dim
+function fire_shift,im,sh,dim
 
   ;;  Shift in Y a different amount for each column
   ;;  use array indexing
 
+  if n_elements(im) eq 0 or n_elements(sh) eq 0 or n_elements(dim) eq 0 then begin
+    print,'Syntax - imsh = fire_shift(im,shift,dim)'
+    return,-1
+  endif
+  
   sz = size(im)
   nx = sz[1]
   ny = sz[2]
-
-  if not keyword_set(dim) then begin
-    if n_elements(sh) eq ny then dim=2
-    if n_elements(sh) eq nx then dim=1 
-  endif
-  if n_elements(dim) eq 0 then begin
-    print,'Not sure which dimensio to shift'
-    return,-1
-  endif
   
   ;; Shift in X
   if dim eq 1 then begin
