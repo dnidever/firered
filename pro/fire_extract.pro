@@ -41,6 +41,7 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
 
   FIRE_LINEFIT2D,tstr[20],imarc,errarc
 
+  stop
 
 ;; Make images structures with:
 ;;   flux, err, mask (good mask), nx, ny, x (global), y (global),

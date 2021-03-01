@@ -134,7 +134,7 @@ pro fire_linefit2d,tstr,im,err,linestr,model,residim,yrecenter=yrecenter,arc=arc
   
   linestr = replicate({num:0L,pars:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)
   linestr.num = lindgen(nlines)+1
-  lmodel = XXXX
+  lmodel = fltarr(subnx)
   for j=0,nlines-1 do begin
     ;; Get the subimage
     xlo = min([maxarr1[j],maxarr2[j]])-12 > 0

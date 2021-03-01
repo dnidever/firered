@@ -11,11 +11,37 @@ function fire_extract_order,tstr,im,err,arc=arc,recenter=recenter,yrecenter=yrec
   if keyword_set(recenter) then begin
     ;; Rectify
     recim = fire_rectify_order(tstr,im)
-    psf = total(recim,1)
-    sz = size(recim)
-    nyhalf = sz[2]/2
+    recsz = size(recim) 
+    psf = total(recim>0h,1)/recsz[1]
+    psf -= median(psf)
+    nyhalf = recsz[2]/2
     bestind = first_el(maxloc(psf))
-    yrecenter = bestind-nyhalf
+    ;yrecenter = bestind-nyhalf
+    ;; Fit gaussian to PSF
+    estimates = [psf[bestind],bestind,2.0,0.0]
+    parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
+    parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
+    parinfo[1].limited = 1     & parinfo[1].limits = [-2,2]+estimates[1]
+    parinfo[2].limited = 1     & parinfo[2].limits = [1,10]
+    parinfo[3].limited = 1     & parinfo[3].limits = [-100,100]
+    psfpars = mpfitfun('gaussian',findgen(recsz[2]),psf,psf*0+1,estimates,$
+                       parinfo=parinfo,perror=psfperror,yfit=yfit,status=status,/quiet)
+    yrecenter = psfpars[1]-nyhalf
+
+
+    ;; What if I did something similar to cross-correlation in 2D
+    ;; create a 2D PSF (unit height?) and x-correlated with observed image
+    ;; then shift by +/-2 pixels (relative to bestind) in 0.1 pix step
+    ;;   subtract median/background for each column
+    ;;   only use pixels with values above some value (>1?)
+    ;; then interpolate to get the best value
+    ;; should I do a boxcar first and use that for the PSF heights?
+    
+    stop
+    
+    ;;; fit with Gaussian
+    ;estimates = [psf[bestind]-median(psf),bestind,2.0,0.0]
+    ;yfit1 = mpfitpeak(fingen(n_elements(psf)),psf-median(psf),psfpars,nterms=4,/gaussian,estimates=estimates)
     print,'Recenter = ',strtrim(yrecenter,2)
   endif
 
