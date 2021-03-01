@@ -24,13 +24,21 @@ function fire_recenter,tstr,im
                      parinfo=parinfo,perror=psfperror,yfit=yfit,status=status,/quiet)
   yrecenter = psfpars[1]-nyhalf
 
+  ;; Recenter aperture 
+  tstr.tycoef[0] += yrecenter
+  print,'Recenter = ',strtrim(yrecenter,2)
+  
 
   ;; Rescale sigma based on this fit
   sig = poly(recim.x,tstr.tsigcoef)
+  medsig = median(sig)
+  scale = psfpars[2]/medsig
+;  tstr.tsigcoef = XXX
+  print,'Rescale = ',strtrim(scale,2)
   
-  
+  ;; MAYBE RESCALE/RECENTER THE TRACE STRUCTURE AND RETURN IT!!!
 stop
   
-  return, yrecenter
+  return, tstr
 
 end
