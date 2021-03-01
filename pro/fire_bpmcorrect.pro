@@ -21,9 +21,10 @@ function fire_bpmcorrect,im,bpm
   datearr = strtrim(strsplit(date,' ',/extract),2)
   timarr = strsplit(datearr[3],':',/extract)
   datestr = datearr[1]+' '+datearr[2]+' '+strjoin(timarr[0:1],':')
+  head = im.head
   fxaddpar,head,'BPM',datestr+' BPM is '+bpm.file+', '+strtrim(nbdpix,2)+' bad pixels'
   im = fire_updateheader(im,head)
-
+  
   return,im
 
   end

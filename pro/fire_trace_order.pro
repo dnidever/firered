@@ -1,8 +1,8 @@
-pro fire_trace_order,bstr,im,err,tstr,tcoef,sigcoef
+pro fire_trace_order,bstr,im,tstr,tcoef,sigcoef
 
   ;; Trace a stellar aperture in one order
 
-  sz = size(im)
+  sz = size(im.flux)
   nx = sz[1]
   ny = sz[2]
   x = findgen(nx)
@@ -11,39 +11,43 @@ pro fire_trace_order,bstr,im,err,tstr,tcoef,sigcoef
   yy = replicate(1,nx)#y
 
   ;; Subimage
-  x1 = x[bstr.lo:bstr.hi]
-  ylo = poly(x1,bstr.y0coef) > 0
-  yhi = poly(x1,bstr.y1coef) < (ny-1)
-  bndy0 = round(min(ylo)) > 0
-  bndy1 = round(max(yhi)) < (ny-1)
-  subim = im[bstr.lo:bstr.hi,bndy0:bndy1]
-  suberr = err[bstr.lo:bstr.hi,bndy0:bndy1]  
-  subxx = xx[bstr.lo:bstr.hi,bndy0:bndy1]
-  subyy = yy[bstr.lo:bstr.hi,bndy0:bndy1]    
-  submask = (subyy ge (poly(subxx,bstr.y0coef)>0) and $
-             subyy le (poly(subxx,bstr.y1coef)<(ny-1)))
-  subsz = size(subim)
-  subnx = subsz[1]
-  subny = subsz[2]
+  apim = fire_getorderimage(bstr,im)
+  x0 = apim.x[0]
   
-  apim = subim*submask  ;; aperture image
-  aperr = suberr*submask
+  ;x1 = x[bstr.lo:bstr.hi]
+  ylo = poly(apim.x,bstr.y0coef) > 0
+  yhi = poly(apim.x,bstr.y1coef) < (ny-1)
+  bndy0 = round(min(ylo)) > 0
+  ;bndy1 = round(max(yhi)) < (ny-1)
+  ;subim = im[bstr.lo:bstr.hi,bndy0:bndy1]
+  ;suberr = err[bstr.lo:bstr.hi,bndy0:bndy1]  
+  ;subxx = xx[bstr.lo:bstr.hi,bndy0:bndy1]
+  ;subyy = yy[bstr.lo:bstr.hi,bndy0:bndy1]    
+  ;submask = (subyy ge (poly(subxx,bstr.y0coef)>0) and $
+  ;           subyy le (poly(subxx,bstr.y1coef)<(ny-1)))
+  ;subsz = size(subim)
+  ;subnx = subsz[1]
+  ;subny = subsz[2]
+  
+  ;apim = subim*submask  ;; aperture image
+  ;aperr = suberr*submask
   
   ;; Loop over columns and find peaks
   step = 20
   nbin = 40
-  tstr = replicate({num:0,xmed:0.0,pars:fltarr(4),perror:fltarr(4),flux:0.0,status:0,bad:0},subnx/step)
+  tstr = replicate({num:0,xmed:0.0,pars:fltarr(4),perror:fltarr(4),flux:0.0,status:0,bad:0},apim.nx/step)
   
-  For i=0,subnx/step-1 do begin
+  For i=0,apim.nx/step-1 do begin
     xmed = i*step+step/2
     xlo = xmed-nbin/2 > 0
-    xhi = xmed+nbin/2 < (subnx-1)
+    xhi = xmed+nbin/2 < (apim.nx-1)
     ylo1 = ceil(ylo[xmed])+3 - bndy0
     yhi1 = floor(yhi[xmed])-3 - bndy0
-    med = median(apim[xlo:xhi,ylo1:yhi1],dim=1)
+    med = median(apim.flux[xlo:xhi,ylo1:yhi1],dim=1)
     sm = smooth(med,3,/edge_truncate)
-    mederr = sqrt( total(aperr[xlo:xhi,ylo1:yhi1]^2,1)/(yhi1-ylo1+1) )
-    ysm = reform(subyy[xmed,ylo1:yhi1])
+    mederr = sqrt( total(apim.err[xlo:xhi,ylo1:yhi1]^2,1)/(yhi1-ylo1+1) )
+    ysm = apim.y[ylo1:yhi1]
+    ;ysm = reform(subyy[xmed,ylo1:yhi1])
     
     ;; Find maximum
     maxind = first_el(maxloc(sm))
@@ -57,7 +61,7 @@ pro fire_trace_order,bstr,im,err,tstr,tcoef,sigcoef
     pars = mpfitfun('gaussian',ysm,sm,mederr,estimates,parinfo=parinfo,$
                     perror=perror,yfit=yfit,status=status,/quiet)
     tstr[i].num = i+1
-    tstr[i].xmed = xmed
+    tstr[i].xmed = xmed+x0
     tstr[i].status = status
     if status gt 0 then begin
       tstr[i].pars = pars

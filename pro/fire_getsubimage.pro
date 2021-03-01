@@ -25,8 +25,9 @@ function fire_getsubimage,im,xr,yr
            mask:im.mask[xr[0]:xr[1],yr[0]:yr[1]],$
            x:im.x[xr[0]:xr[1]],y:im.y[yr[0]:yr[1]],$
            nx:xr[1]-xr[0]+1,ny:yr[1]-yr[0]+1,$
-           head:im.head,exptype:im.exptype,subimage:0}
-
+           head:im.head,exptype:im.exptype,$
+           subimage:1,rectified:0}
+  
   return,newim
   
   end

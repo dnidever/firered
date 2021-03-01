@@ -189,7 +189,7 @@ pro fire_boundary_orders
 
     trace[i].lo = max( [min(trace[i].x[indlo]),min(trace[i].x[indhi])] )
     trace[i].hi = min( [max(trace[i].x[indlo]),max(trace[i].x[indhi])] )
-    stop
+    ;stop
   endfor
 
   displayc,im,min=0,max=1000
@@ -200,7 +200,7 @@ pro fire_boundary_orders
     oplot,xx,poly(xx,trace[i].y1coef),co=250  
   endfor
 
-  ;mwrfits,trace,'fire_trace_0011.fits',/create
+  ;mwrfits,trace,'fire_boundary_0011.fits',/create
   
   stop
 

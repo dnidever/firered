@@ -7,11 +7,8 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   tracefile = 'fire_trace_0084.fits'  
   bpmfile = 'bpm2.fits'
 
-  ;fits_read,objfile,imobj,objhead
   obj = fire_makeimage(objfile)
-  ;fits_read,arcfile,imarc,archead
   arc = fire_makeimage(arcfile)
-  ;fits_read,bpmfile,imbpm,bpmhead
   bpm = fire_makeimage(bpmfile)
   bstr = mrdfits(boundaryfile,1)
   tstr = mrdfits(tracefile,1)  
@@ -19,19 +16,8 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   npix = 2048
 
   ;; Correct for bpm
-  ;bd = where(imbpm eq 1,nbd)
-  ;medobj = median(imobj,5)
-  ;imobj[bd] = medobj[bd]
-  ;medarc = median(imarc,5)  
-  ;imarc[bd] = imarc[bd]
   obj = fire_bpmcorrect(obj,bpm)
   arc = fire_bpmcorrect(arc,bpm)  
-  
-  ;;; Fix "flipped" pixels
-  ;bd = where(imobj lt -1000,nbd)
-  ;if nbd gt 0 then imobj[bd] += 65536
-  ;bd = where(imarc lt -1000,nbd)
-  ;if nbd gt 0 then imarc[bd] += 65536  
 
   ;; Correct for Dark current
   ;; scale by exptime
@@ -43,11 +29,11 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   ;errobj = sqrt((imobj>1)/gain)
   ;errarc = sqrt((imarc>1)/gain)  
 
-  stop
+  ;FIRE_LINEFIT2D,tstr[20],arc
 
-  FIRE_LINEFIT2D,tstr[20],arc
-
-  stop
+  ;fire_linefit2d,tstr0,im,linestr,model,residim,lmodel,yrecenter=yrecenter,arc=arc
+  
+  ;stop
 
 ;; Make images structures with:
 ;;   flux, err, mask (good mask), nx, ny, x (global), y (global),
@@ -63,12 +49,27 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   For i=1,norders-1 do begin
   ;For i=20,20 do begin     
     print,'order = ',i
-    undefine,yrecenter
-    outobj1 = FIRE_EXTRACT_ORDER(tstr[i],imobj,errobj,/recenter,yrecenter=yrecenter)
-    outobj[i].data = ptr_new(outobj1)
-    ;; pass object yrecenter value on to extract arc the same way
-    outarc1 = FIRE_EXTRACT_ORDER(tstr[i],imarc,errarc,/arc,yrecenter=yrecenter)
-    outarc[i].data = ptr_new(outarc1)    
+    ;; Recenter aperture 
+    tstr1 = tstr[i]
+    yrecenter = FIRE_RECENTER(tstr[i],obj)
+    tstr1.tycoef[0] += yrecenter
+    print,'Recenter = ',strtrim(yrecenter,2)
+    ;; Get arc lines
+    FIRE_LINEFIT2D,tstr1,arc,subarc,alinestr,amodel,aresidim,almodel,count=nalines,/arc
+    print,strtrim(nalines,2),' arc lines found'
+    ;; Remove sky lines
+    FIRE_LINEFIT2D,tstr1,obj,subobj,slinestr,smodel,sresidim,slmodel,count=nslines
+    print,strtrim(nslines,2),' sky lines found'
+    ;; Extract the object spectrum
+    spec = FIRE_EXTRACT_ORDER(tstr1,subobj)
+    
+stop
+    
+    ;outobj1 = FIRE_EXTRACT_ORDER(tstr[i],imobj,errobj,/recenter,yrecenter=yrecenter)
+    ;outobj[i].data = ptr_new(outobj1)
+    ;;; pass object yrecenter value on to extract arc the same way
+    ;outarc1 = FIRE_EXTRACT_ORDER(tstr[i],imarc,errarc,/arc,yrecenter=yrecenter)
+    ;outarc[i].data = ptr_new(outarc1)    
     ;stop
   Endfor
 
@@ -80,7 +81,7 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   
   ;; Write a program that will fit the trace using a bright star.
 
-  FIRE_LINEFIT2D,tstr[20],imobj,errobj,linestr,model,residim  ;,yrecenter=yrecenter,arc=arc
+  ;FIRE_LINEFIT2D,tstr[20],imobj,errobj,linestr,model,residim  ;,yrecenter=yrecenter,arc=arc
   
   ;data = *outobj[20].data
   ;FIRE_LINEFIT2D,data.recim,data.recerr,linestr1,model1

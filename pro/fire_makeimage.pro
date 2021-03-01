@@ -41,8 +41,8 @@ function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
   if n_elements(mask) eq 0 then mask=bytarr(nx,ny)+1
   im = create_struct(im,'mask',mask)
   ;; X and Y arrays
-  if n_elements(x) eq 0 then x=findgen(nx)
-  if n_elements(y) eq 0 then y=findgen(ny)
+  if n_elements(x) eq 0 then x=lindgen(nx)
+  if n_elements(y) eq 0 then y=lindgen(ny)
   im = create_struct(im,'x',x,'y',y,'nx',nx,'ny',ny)
   ;; Header
   if n_elements(head) eq 0 then mkhdr,head,flux
@@ -59,8 +59,8 @@ function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
   endif
   if strlowcase(exptype) eq 'science' then exptype='object'
   im = create_struct(im,'exptype',exptype)
-  ;; Subimage
-  im = create_struct(im,'subimage',0)
+  ;; Subimage/rectified
+  im = create_struct(im,'subimage',0,'rectified',0)
   
   return,im
   

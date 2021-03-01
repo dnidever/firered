@@ -1,45 +1,43 @@
-pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
+pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrecenter=yrecenter,arc=arc
 
   ;; Fit emission lines in 2D
   npix = 2048
-  yrecenter = 0
+  if n_elements(yrecenter) eq 0 then yrecenter = 0.0
+
+  ;; Offset trace for the yrecenter
+  tstr = tstr0
+  tstr.tycoef[0] += yrecenter
   
   ;; Get order image
-  outim = fire_getorderimage(tstr,im)
-  outerr = fire_getorderimage(tstr,err)
-  apim = outim.im
-  aperr = outerr.im
-  subsz = size(apim)
-  subnx = subsz[1]
-  subny = subsz[2]  
-  xsub = findgen(subnx)
-  ysub = (findgen(npix))[outim.y0:outim.y1]
-
-  ;; Rectify to find peaks
-  recim = fire_rectify_order(tstr,im)
-  recerr = fire_rectify_order(tstr,err)  
+  apim = fire_getorderimage(tstr,im)
 
   ;; Get trace information
-  ytrace = poly(xsub,tstr.tycoef)-outim.y0
+  ytrace = poly(apim.x,tstr.tycoef)-apim.y[0]
+
+  ylo = poly(apim.x,tstr.bndy0coef) > 0
+  yhi = poly(apim.x,tstr.bndy1coef) < (npix-1)
+  y0 = apim.y[0]
+  
+  ;; Rectify to find peaks
+  recim = fire_rectify_order(tstr,im,/exact)
+
   
   ;; Find the peaks
-  recsz = size(recim)
-  recnx = recsz[1]
-  recny = recsz[2]
-  xrec = findgen(recnx)
-  yrec = findgen(recny)
-
+  xrec = findgen(recim.nx)
+  yrec = findgen(recim.ny)
+  
+  
   ;; Find peaks at lower and upper half
-  med1 = median(recim[*,5:recny/2-5],dim=2)
-  sm1 = medfilt1d(med1,101)
+  med1 = median(recim.flux[*,5:recim.ny/2-5],dim=2)
+  sm1 = medfilt1d(med1,101,/edge)
   med1 -= sm1
   maxima,med1,minarr1,maxarr1
   sig1 = mad(med1)
   gd1 = where(med1[maxarr1] gt 5*sig1 and med1[maxarr1-1] gt 3*sig1 and med1[maxarr1+1] gt 3*sig1,ngd1)
   maxarr1 = maxarr1[gd1]
 
-  med2 = median(recim[*,recny/2+5:recny-6],dim=2)  
-  sm2 = medfilt1d(med2,101)
+  med2 = median(recim.flux[*,recim.ny/2+5:recim.ny-6],dim=2)  
+  sm2 = medfilt1d(med2,101,/edge)
   med2 -= sm2
   maxima,med2,minarr2,maxarr2
   sig2 = mad(med2)
@@ -50,37 +48,41 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
   xcorlb,med1,med2,15,xsh
 
   ;; Match up the lines, need to find them in both
-  srcmatch,maxarr1,maxarr1*0,maxarr2+xsh,maxarr2*0,3.0,ind1,ind2
-  maxarr1 = maxarr1[ind1]
-  maxarr2 = maxarr2[ind2]
-  nlines = n_elements(maxarr1)
+  srcmatch,maxarr1,maxarr1*0,maxarr2+xsh,maxarr2*0,3.0,ind1,ind2,count=nlines
 
   ;; No lines found
   if nlines eq 0 then begin
-    print,'No lines found'
+    newim = im
     linestr = -1
+    model = recim.flux*0
+    residim = recim.flux*0    
+    lmodel = recim.flux[*,0]*0
     return
   endif
+  maxarr1 = maxarr1[ind1]
+  maxarr2 = maxarr2[ind2]
+
   
   ;; Get initial estimate for slope
-  slp = -xsh/(mean([recny/2+5,recny-6])-mean([5,recny/2-5]))
-
+  slp = -xsh/(mean([recim.ny/2+5,recim.ny-6])-mean([5,recim.ny/2-5]))
   
   ;; FIRST, fit the lines in rectified space
   ;;-----------------------------------------
   
   ;; Fit the lines
-  residim1 = recim
-  model1 = recim*0
+  residim1 = recim.flux
+  model1 = recim.flux*0
   
   linestr1 = replicate({num:0L,pars:fltarr(6),status:0},nlines)
   linestr1.num = lindgen(nlines)+1
   for j=0,nlines-1 do begin
     ;; Get the subimage
     xlo = min([maxarr1[j],maxarr2[j]])-12 > 0
-    xhi = max([maxarr1[j],maxarr2[j]])+12 < (recnx-1)
+    xhi = max([maxarr1[j],maxarr2[j]])+12 < (recim.nx-1)
     subim1 = residim1[xlo:xhi,*]
-    suberr1 = recerr[xlo:xhi,*]
+    suberr1 = recim.err[xlo:xhi,*]
+    submask1 = recim.mask[xlo:xhi,*]
+    subim1 *= submask1
     subsz1 = size(subim1)
     nxsub1 = subsz1[1]
     nysub1 = subsz1[2]
@@ -89,30 +91,35 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
     ;; X and Y should be 2D arrays
     xx = xrec[xlo:xhi]#replicate(1,nysub1)
     yy = replicate(1,nxsub1)#yrec
-
+    
     ;; fix zero error
     bderr = where(suberr1 eq 0,nbderr)
     if nbderr gt 0 then suberr1[bderr]=999999.
     
-    estimates = [mean([med1[maxarr1[j]], med2[maxarr2[j]]]), 2.0, mean(xrec[xlo:xhi]), recny/2, slp, 0.0]      
+    estimates = [mean([med1[maxarr1[j]], med2[maxarr2[j]]]), 2.0, mean(xrec[xlo:xhi]), recim.ny/2, slp, median(subim1)]      
     parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},6)
     parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0                   ;; height
     parinfo[1].limited = 1     & parinfo[1].limits = [1,6]                    ;; sigma
     parinfo[2].fixed = 1                                                      ;; cenX
-    parinfo[3].limited = 1     & parinfo[3].limits = [-2,2]+estimates[3]      ;; cenY
+    parinfo[3].limited = 1     & parinfo[3].limits = [-5,5]+estimates[3]      ;; cenY
     parinfo[4].limited = 1     & parinfo[4].limits = [0.7,1.3]*estimates[4]   ;; slope
     parinfo[5].limited = 1     & parinfo[5].limits = minmax(subim1)            ;; offset
     ;; Mask central region
     if not keyword_set(arc) then begin
       mask1 = subim1*0+1
-      mask1[*,recny/2-5:recny/2+5] = 0
+      mask1[*,recim.ny/2-5:recim.ny/2+5] = 0
+      mask1 *= submask1
       subim1 = subim1*mask1
-    endif else mask1=subim1*0+1
+    endif else mask1=submask1
     ;; Mask edges
-    fa = {y0:3,y1:nysub1-3,mask:mask1}
     subim1[*,0:3] = 0
     subim1[*,nysub1-3:*] = 0
-    pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,status=status,functargs=fa,/quiet)
+    mask1[*,0:3] = 0
+    mask1[*,nysub1-3:*] = 0
+    fa = {y0:3,y1:nysub1-3,mask:mask1}    
+    ;;fa = {mask:mask1}
+    pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,$
+                       status=status,functargs=fa,yfit=yfit1,/quiet)
     linestr1[j].status = status
     if status gt 0 then begin
       linestr1[j].pars = pars1
@@ -126,33 +133,34 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
     endif
   endfor
 
+  
   ;; SECOND, fit lines in original (curved) space
   ;;---------------------------------------------
 
-  residim = apim
-  model = apim*0
+  residim = apim.flux
+  model = apim.flux*0
   
   linestr = replicate({num:0L,pars:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)
   linestr.num = lindgen(nlines)+1
-  lmodel = fltarr(subnx)
+  lmodel = fltarr(apim.nx)
   for j=0,nlines-1 do begin
     ;; Get the subimage
     xlo = min([maxarr1[j],maxarr2[j]])-12 > 0
-    xhi = max([maxarr1[j],maxarr2[j]])+12 < (recnx-1)
+    xhi = max([maxarr1[j],maxarr2[j]])+12 < (apim.nx-1)
     
-    ysrt = round(min(outim.ylo[xlo:xhi]))-outim.y0 + 3
-    yend = round(max(outim.yhi[xlo:xhi]))-outim.y0 - 3
+    ysrt = round(min(ylo[xlo:xhi]))-y0 + 3
+    yend = round(max(yhi[xlo:xhi]))-y0 - 3
 
     subim1 = residim[xlo:xhi,ysrt:yend]
-    suberr1 = aperr[xlo:xhi,ysrt:yend]
+    suberr1 = apim.err[xlo:xhi,ysrt:yend]
     subsz1 = size(subim1)
     nxsub1 = subsz1[1]
     nysub1 = subsz1[2]
     ;; parameters: Gaussian height, Gaussian width, central X position,
     ;;             central Y position, slope (deltaX/deltaY), offset
     ;; X and Y should be 2D arrays
-    xx = xrec[xlo:xhi]#replicate(1,nysub1)
-    yy = replicate(1,nxsub1)#ysub[ysrt:yend]-outim.y0
+    xx = apim.x[xlo:xhi]#replicate(1,nysub1)
+    yy = replicate(1,nxsub1)#apim.y[ysrt:yend]-y0
 
     ;; fix zero error
     bderr = where(suberr1 eq 0,nbderr)
@@ -160,7 +168,7 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
     
     estimates = linestr1[j].pars
     ;; force ycen to be on the trace line, and hold that fixed
-    ycen = poly(estimates[2],tstr.tycoef)-outim.y0
+    ycen = poly(estimates[2],tstr.tycoef)-y0
     estimates[3] = ycen
     parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},6)
     parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0                   ;; height
@@ -181,7 +189,9 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
     fa = {mask:mask1}    
     ;;subim1[*,0:3] = 0
     ;;subim1[*,nysub1-3:*] = 0
-    pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,status=status,functargs=fa,/quiet)
+    pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,$
+                       status=status,functargs=fa,yfit=yfit1,/quiet)
+    print,pars1
     linestr[j].status = status
     if status gt 0 then begin
       linestr[j].pars = pars1
@@ -201,15 +211,28 @@ pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
       ;; X = xcen+(y[i]-ycen)*slope
       ycen1 = ycen
       xcen1 = pars1[2]+(ycen1-pars1[3])*pars1[4]
-      ycen2 = poly(xcen1,tstr.tycoef)-outim.y0  ;; iterate
+      ycen2 = poly(xcen1,tstr.tycoef)-y0  ;; iterate
       xcen2 = pars1[2]+(ycen2-pars1[3])*pars1[4]
       linestr[j].xtrace = xcen2
       linestr[j].ytrace = ycen2
       ;; make 1D model of line
-      ;;lmodel[xlo:xhi] = gaussian(lindgen(xlo:xhi)...,[linestr[j].pars[0],xcen2,linestr[j].pars[1]])
+      lmodel[xlo:xhi] = gaussian(lindgen(xhi-xlo+1)+xlo,[linestr[j].pars[0],xcen2,linestr[j].pars[1]])
     endif
   endfor
-  
+
+  ;; Subtract model from image
+  newim = {file:im.file,flux:im.flux,err:im.err,mask:im.mask,x:im.x,y:im.y,$
+           nx:im.nx,ny:im.ny,head:im.head,exptype:im.exptype,$
+           subimage:0,rectified:0}
+  ;; Subtract the 2D line model
+  x0 = apim.x[0]
+  x1 = x0+apim.nx-1
+  y0 = apim.y[0]
+  y1 = y0+apim.ny-1
+  flux = im.flux[x0:x1,y0:y1]
+  flux -= model
+  newim.flux[x0:x1,y0:y1] = flux
+
   ;stop
 
   end
