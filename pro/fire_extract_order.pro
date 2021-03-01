@@ -30,7 +30,7 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
   ;subsz = size(subim)
   ;subnx = subsz[1]
   ;subny = subsz[2]
-  ;ysub = findgen(subny)
+  ;ysub = findgen(apim.ny)
 
   ;;; Masked "aperture" image
   ;apim = subim*submask
@@ -38,7 +38,7 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
   
   ;; Trace and sigma information
   ;xsub = findgen(subnx)
-  ytrace = poly(apim.x,tstr.tycoef)-y0 + yrecenter
+  ytrace = poly(apim.x,tstr.tycoef) + yrecenter
   sigtrace = poly(apim.x,tstr.tsigcoef)
 
   ;; Median for each column
@@ -47,9 +47,13 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
   ;medy = median(temp,dim=1)
   ;bd = where(finite(medy) eq 0,nbd,comp=gd)
   ;medy[bd] = median(medy[gd])
+
+  ;; Rectified image for boxcar flux
+  recim = fire_rectify_order(tstr,im,/exact)
   
   ;; Extract each column
-  extstr = replicate({num:0L,pars:fltarr(4),perror:fltarr(4),flux:0.0,err:0.0,status:0,boxflux:0.0},apim.nx)
+  extstr = replicate({num:0L,pars:fltarr(4),perror:fltarr(4),chisq:0.0,rchisq:0.0,$
+                      flux:0.0,err:0.0,mask:0,status:0,boxflux:0.0},apim.nx)
   extstr.num = lindgen(apim.nx)+1
   for i=0,apim.nx-1 do begin
     parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
@@ -57,21 +61,65 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
     parinfo[1].fixed = 1
     parinfo[2].fixed = 1
     parinfo[3].limited = 1     & parinfo[3].limits = [-100,500]
-    estimates = [apim.flux[i,round(ytrace[i])]>1, ytrace[i], sigtrace[i], 0.0]
-    ysrt = round(ylo[i])-y0 + 3
-    yend = round(yhi[i])-y0 - 3
+    estimates = [apim.flux[i,round(ytrace[i]-y0)]>1, ytrace[i], sigtrace[i], 0.0]
+    ysrt = round(ytrace[i]-y0-3*sigtrace[i])
+    yend = round(ytrace[i]-y0+3*sigtrace[i])    
+    ;ysrt = round(ylo[i])-y0 + 3
+    ;yend = round(yhi[i])-y0 - 3
 
-    pars = mpfitfun('gaussian',apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,estimates,$
-                     parinfo=parinfo,perror=perror,status=status,/quiet)
+    pars = mpfitfun('gaussian',apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,$
+                    estimates,parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
+    rchisq = chisq/n_elements(apim.flux[i,ysrt:yend])
+    extstr[i].chisq = chisq
+    extstr[i].rchisq = rchisq
+    flux = pars[0]*pars[2]*sqrt(2*!dpi)
+    ;; Boxcar flux
+    boxflux = total(recim.flux[i,*],2)
+    extstr[i].boxflux = boxflux
+
+    ;; If the Gaussian fit flux is much lower than the boxcar flux
+    ;; then refit with outlier rejection
+    if status gt 0 and flux lt boxflux*0.8 then begin
+      pars1 = pars
+      perror1 = perror
+      yfit1 = yfit
+      estimates2 = pars1
+      yin = apim.y[ysrt:yend]
+      fluxin = reform(apim.flux[i,ysrt:yend])
+      errin = reform(apim.err[i,ysrt:yend])>1
+      sig = mad((fluxin-yfit1)/errin,/zero)
+      gd = where(abs((fluxin-yfit1)/errin) lt 5*sig,ngd,comp=bd,ncomp=nbd)
+      if nbd gt 0 then begin
+        pars = mpfitfun('gaussian',yin[gd],fluxin[gd],errin[gd],estimates2,$
+                        parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
+        rchisq = chisq/ngd
+        extstr[i].chisq = chisq
+        extstr[i].rchisq = rchisq
+        flux = pars[0]*pars[2]*sqrt(2*!dpi)
+        ;;plot,fluxin
+        ;;oplot,yfit1,co=150
+        ;;oplot,gd,yfit,co=250
+      endif
+    endif
+
     extstr[i].status = status
     if status gt 0 then begin
       extstr[i].pars = pars
       extstr[i].perror = perror
       extstr[i].flux = pars[0]*pars[2]*sqrt(2*!dpi)
       extstr[i].err = extstr[i].flux * sqrt( (perror[0]/pars[0])^2 + (perror[2]/pars[2])^2 )
-    endif
+      extstr[i].mask = 1
+    endif else begin
+      extstr[i].flux = 1e30
+      extstr[i].err = 1e30
+      extstr[i].mask = 0      
+    endelse
   endfor
 
+
+  ;; x=846, y=140
+
+  
   return, extstr
 
 end

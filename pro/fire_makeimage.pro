@@ -34,8 +34,23 @@ function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
     hdgain = sxpar(head,'gain',count=ngain)  ; electrons/DU     
     if ngain gt 0 then gain=hdgain
   endif
+  ;; Read noise
+  rdnoise = 0.0
+  if n_elements(head) gt 0 then begin
+    hdrdnoise = sxpar(head,'enoise',count=nrdnoise)  ; electrons/read
+    if nrdnoise gt 0 then rdnoise=hdrdnoise
+  endif  
   ;; Error array
-  if n_elements(err) eq 0 then err = sqrt((flux>1)/gain)
+  if n_elements(err) eq 0 then begin
+     ;; poisson error in electrons = sqrt((flux>1)*gain)
+     ;; rdnoise (in electrons)
+     ;; add in quadrature
+     ;; err[e] = sqrt( (flux>1)*gain) + rdnoise^2)
+     ;; convert back to ADU
+     ;; err[ADU] = sqrt( (flux>1)*gain) + rdnoise^2)/gain
+     ;;          = sqrt( (flux>1)/gain + (rdnoise/gain)^2 )
+     err = sqrt((flux>1)/gain + (rdnoise/gain)^2)
+  endif
   im = create_struct(im,'err',err)
   ;; Mask
   if n_elements(mask) eq 0 then mask=bytarr(nx,ny)+1

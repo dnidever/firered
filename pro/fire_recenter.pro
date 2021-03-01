@@ -24,6 +24,13 @@ function fire_recenter,tstr,im
                      parinfo=parinfo,perror=psfperror,yfit=yfit,status=status,/quiet)
   yrecenter = psfpars[1]-nyhalf
 
+
+  ;; Rescale sigma based on this fit
+  sig = poly(recim.x,tstr.tsigcoef)
+  
+  
+stop
+  
   return, yrecenter
 
 end

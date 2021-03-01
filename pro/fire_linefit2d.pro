@@ -1,5 +1,8 @@
 pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrecenter=yrecenter,arc=arc
 
+  undefine,newim,linestr,model,lmodel
+  nlines = 0
+  
   ;; Fit emission lines in 2D
   npix = 2048
   if n_elements(yrecenter) eq 0 then yrecenter = 0.0
@@ -221,9 +224,7 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   endfor
 
   ;; Subtract model from image
-  newim = {file:im.file,flux:im.flux,err:im.err,mask:im.mask,x:im.x,y:im.y,$
-           nx:im.nx,ny:im.ny,head:im.head,exptype:im.exptype,$
-           subimage:0,rectified:0}
+  newim = im
   ;; Subtract the 2D line model
   x0 = apim.x[0]
   x1 = x0+apim.nx-1
