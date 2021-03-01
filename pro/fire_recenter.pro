@@ -33,11 +33,8 @@ function fire_recenter,tstr,im
   sig = poly(recim.x,tstr.tsigcoef)
   medsig = median(sig)
   scale = psfpars[2]/medsig
-;  tstr.tsigcoef = XXX
+  tstr.tsigcoef *= scale
   print,'Rescale = ',strtrim(scale,2)
-  
-  ;; MAYBE RESCALE/RECENTER THE TRACE STRUCTURE AND RETURN IT!!!
-stop
   
   return, tstr
 

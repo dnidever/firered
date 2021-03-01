@@ -40,9 +40,8 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
     print,'order = ',i
     ;; Recenter aperture 
     tstr1 = tstr[i]
-    yrecenter = FIRE_RECENTER(tstr[i],obj)
-    tstr1.tycoef[0] += yrecenter
-    print,'Recenter = ',strtrim(yrecenter,2)
+    tstr1 = FIRE_RECENTER(tstr1,obj) ; recenter/scale
+    ;tstr1.tycoef[0] += yrecenter
     ;; Get arc lines
     FIRE_LINEFIT2D,tstr1,arc,subarc,alinestr,amodel,aresidim,almodel,count=nalines,/arc
     if nalines gt 0 then push,arclines,alinestr
