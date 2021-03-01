@@ -1,4 +1,4 @@
-pro fire_linefit2d,tstr,im,err,linestr,model,residim,yrecenter=yrecenter,arc=arc
+pro fire_linefit2d,tstr,im,linestr,model,residim,yrecenter=yrecenter,arc=arc
 
   ;; Fit emission lines in 2D
   npix = 2048

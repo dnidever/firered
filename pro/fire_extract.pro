@@ -7,39 +7,45 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   tracefile = 'fire_trace_0084.fits'  
   bpmfile = 'bpm2.fits'
 
-  fits_read,objfile,imobj,objhead
-  fits_read,arcfile,imarc,archead
-  fits_read,bpmfile,imbpm,bpmhead
+  ;fits_read,objfile,imobj,objhead
+  obj = fire_makeimage(objfile)
+  ;fits_read,arcfile,imarc,archead
+  arc = fire_makeimage(arcfile)
+  ;fits_read,bpmfile,imbpm,bpmhead
+  bpm = fire_makeimage(bpmfile)
   bstr = mrdfits(boundaryfile,1)
   tstr = mrdfits(tracefile,1)  
   norders = n_elements(bstr)
   npix = 2048
 
   ;; Correct for bpm
-  bd = where(imbpm eq 1,nbd)
-  medobj = median(imobj,5)
-  imobj[bd] = medobj[bd]
-  medarc = median(imarc,5)  
-  imarc[bd] = imarc[bd]
-
-  ;; Fix "flipped" pixels
-  bd = where(imobj lt -1000,nbd)
-  if nbd gt 0 then imobj[bd] += 65536
-  bd = where(imarc lt -1000,nbd)
-  if nbd gt 0 then imarc[bd] += 65536  
+  ;bd = where(imbpm eq 1,nbd)
+  ;medobj = median(imobj,5)
+  ;imobj[bd] = medobj[bd]
+  ;medarc = median(imarc,5)  
+  ;imarc[bd] = imarc[bd]
+  obj = fire_bpmcorrect(obj,bpm)
+  arc = fire_bpmcorrect(arc,bpm)  
+  
+  ;;; Fix "flipped" pixels
+  ;bd = where(imobj lt -1000,nbd)
+  ;if nbd gt 0 then imobj[bd] += 65536
+  ;bd = where(imarc lt -1000,nbd)
+  ;if nbd gt 0 then imarc[bd] += 65536  
 
   ;; Correct for Dark current
   ;; scale by exptime
   
   ;; Do flat field correction
 
-  ;; Construct error arrays
-  gain = sxpar(objhead,'gain')  ; electrons/DU
-  errobj = sqrt((imobj>1)/gain)
-  errarc = sqrt((imarc>1)/gain)  
+  ;;; Construct error arrays
+  ;gain = sxpar(objhead,'gain')  ; electrons/DU
+  ;errobj = sqrt((imobj>1)/gain)
+  ;errarc = sqrt((imarc>1)/gain)  
 
+  stop
 
-  FIRE_LINEFIT2D,tstr[20],imarc,errarc
+  FIRE_LINEFIT2D,tstr[20],arc
 
   stop
 

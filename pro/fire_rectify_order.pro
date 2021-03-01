@@ -1,4 +1,4 @@
-function fire_rectify_order,tstr,im
+function fire_rectify_order,tstr,im,exact=exact
 
   npix = 2048
   x = findgen(npix)
@@ -33,16 +33,34 @@ function fire_rectify_order,tstr,im
   nyhalf = ny/2
   recim = fltarr(nx,ny)
 
-  used = lonarr(ny)
-  for j=0,nx-1 do begin
-    ysrt = round(ylo[j])-y0
-    yend = round(yhi[j])-y0
-    ny1 = yend-ysrt+1
-    yoff = nyhalf-(round(ytrace[j])-ysrt)
-    recim[j,yoff:yoff+ny1-1] = reform( (subim*submask)[j,ysrt:yend] )
-    used[yoff:yoff+ny1-1] OR= 1 
- endfor
-
+  exact = 1
+  
+  ;; Interpolate
+  if keyword_set(exact) then begin
+    used = lonarr(ny)
+    for j=0,nx-1 do begin
+      ysrt = round(ylo[j])-y0
+      yend = round(yhi[j])-y0
+      ny1 = yend-ysrt+1
+      yoff = nyhalf-(round(ytrace[j])-ysrt)
+stop
+      recim[j,yoff:yoff+ny1-1] = reform( (subim*submask)[j,ysrt:yend] )
+      used[yoff:yoff+ny1-1] OR= 1 
+    endfor
+     
+  ;; Pixel shifts
+  endif else begin
+    used = lonarr(ny)
+    for j=0,nx-1 do begin
+      ysrt = round(ylo[j])-y0
+      yend = round(yhi[j])-y0
+      ny1 = yend-ysrt+1
+      yoff = nyhalf-(round(ytrace[j])-ysrt)
+      recim[j,yoff:yoff+ny1-1] = reform( (subim*submask)[j,ysrt:yend] )
+      used[yoff:yoff+ny1-1] OR= 1 
+   endfor
+  endelse
+    
   ;; Trim unused rows, but make sure the "center" is still along the
   ;; central row at the end, and that there are an odd number of rows
   recim0 = recim
