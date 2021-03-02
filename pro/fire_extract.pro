@@ -36,12 +36,10 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   undefine,arclines
   undefine,skylines
   For i=1,norders-1 do begin
-  ;For i=8,20 do begin     
+  ;For i=20,20 do begin     
     print,'order = ',i
-    ;; Recenter aperture 
-    tstr1 = tstr[i]
-    tstr1 = FIRE_RECENTER(tstr1,obj) ; recenter/scale
-    ;tstr1.tycoef[0] += yrecenter
+    ;; Recenter/scale aperture 
+    tstr1 = FIRE_SCALE_TRACE(tstr[i],obj) ; recenter/scale
     ;; Get arc lines
     FIRE_LINEFIT2D,tstr1,arc,subarc,alinestr,amodel,aresidim,almodel,count=nalines,/arc
     if nalines gt 0 then push,arclines,alinestr
@@ -61,6 +59,7 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
 
     ;; The Gaussian PSF fits aren't that great
     ;; maybe scale PSF when doing recenter?
+    ;; Maye try Moffat function instead
     
     ;stop
   Endfor  ;; order loop

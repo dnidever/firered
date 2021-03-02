@@ -62,10 +62,10 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
     parinfo[2].fixed = 1
     parinfo[3].limited = 1     & parinfo[3].limits = [-100,500]
     estimates = [apim.flux[i,round(ytrace[i]-y0)]>1, ytrace[i], sigtrace[i], 0.0]
-    ysrt = round(ytrace[i]-y0-3*sigtrace[i])
-    yend = round(ytrace[i]-y0+3*sigtrace[i])    
-    ;ysrt = round(ylo[i])-y0 + 3
-    ;yend = round(yhi[i])-y0 - 3
+    ;ysrt = round(ytrace[i]-y0-5*sigtrace[i])
+    ;yend = round(ytrace[i]-y0+5*sigtrace[i])    
+    ysrt = round(ylo[i])-y0 + 3
+    yend = round(yhi[i])-y0 - 3
 
     pars = mpfitfun('gaussian',apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,$
                     estimates,parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
@@ -76,14 +76,14 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
     ;; Boxcar flux
     recflux = reform(recim.flux[i,*])
     recmask = reform(recim.mask[i,*])
-    ylo = round(recim.ny/2-3*sigtrace[i])
-    yhi = round(recim.ny/2+3*sigtrace[i])
-    back = [recflux[0:ylo-1],recflux[yhi+1:*]]
-    backmask = [recmask[0:ylo-1],recmask[yhi+1:*]]
+    yblo = round(recim.ny/2-3*sigtrace[i])
+    ybhi = round(recim.ny/2+3*sigtrace[i])
+    back = [recflux[0:yblo-1],recflux[ybhi+1:*]]
+    backmask = [recmask[0:yblo-1],recmask[ybhi+1:*]]
     gdback = where(backmask eq 1,ngdback)
     medback = 0.0
     if ngdback gt 0 then medback=median(back[gdback])
-    boxflux = total((recflux[ylo:yhi]-medback)>0)
+    boxflux = total((recflux[yblo:ybhi]-medback)>0)
     extstr[i].boxflux = boxflux
     
     ;; If the Gaussian fit flux is much lower than the boxcar flux
@@ -110,7 +110,7 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
         ;;oplot,gd,yfit,co=250
       endif
     endif
-
+    
     extstr[i].status = status
     if status gt 0 then begin
       extstr[i].pars = pars

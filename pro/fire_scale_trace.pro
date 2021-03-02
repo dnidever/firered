@@ -1,6 +1,6 @@
 function fire_scale_trace,tstr,im
 
-  ;; Recenter the aperture
+  ;; Recenter and scale the aperture
   ;; tstr - trace structure for this order
   ;; im  - original image
 
