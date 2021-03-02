@@ -1,5 +1,5 @@
 pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpmfile,$
-                 moffat=moffat,outdir=outdir
+                 darkfile=darkfile,moffat=moffat,outdir=outdir
 
   if n_elements(outdir) eq 0 then outdir='finalspec/'
   
@@ -8,7 +8,9 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
   arcfile = 'ut131222/fire_0047.fits'
   if n_elements(bndfile) eq 0 then bndfile = 'fire_boundary_0011.fits'
   if n_elements(tracefile) eq 0 then tracefile = 'fire_trace_0084.fits'  
-  if n_elements(bpmfile) eq 0 then bpmfile = 'bpm3.fits'
+
+  if n_elements(darkfile) eq 0 then darkfile = 'bpm3.fits'
+  if n_elements(bpmfile) eq 0 then bpmfile = 'bpm3.fits'  
   if n_elements(moffat) eq 0 then moffat=1
 
   ;; Load the data
