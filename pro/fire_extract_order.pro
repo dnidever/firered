@@ -1,9 +1,8 @@
-pro fire_extract_order,tstr,im,extstr,model,arc=arc,recenter=recenter,yrecenter=yrecenter
+pro fire_extract_order,tstr,im,extstr,model,arc=arc,moffat=moffat,yrecenter=yrecenter
 
   ;; maybe use fire_rectify_order.pro here
 
   npix = 2048
-
   if n_elements(yrecenter) eq 0 then yrecenter=0.0
   
   ;; Get aperture subimage using boundary
@@ -40,41 +39,63 @@ pro fire_extract_order,tstr,im,extstr,model,arc=arc,recenter=recenter,yrecenter=
   ;xsub = findgen(subnx)
   ytrace = poly(apim.x,tstr.tycoef) + yrecenter
   sigtrace = poly(apim.x,tstr.tsigcoef)
+  hwhmtrace = poly(apim.x,tstr.thwhmcoef)
+  mofftrace = poly(apim.x,tstr.tmoffcoef)  
 
-  ;; Median for each column
-  ;temp = apim*0 + !values.f_nan
-  ;temp[where(submask eq 1)] = apim[where(submask eq 1)]
-  ;medy = median(temp,dim=1)
-  ;bd = where(finite(medy) eq 0,nbd,comp=gd)
-  ;medy[bd] = median(medy[gd])
 
   ;; Rectified image for boxcar flux
   recim = fire_rectify_order(tstr,im,/exact)
   
   ;; Extract each column
-  extstr = replicate({num:0L,x:0.0,pars:fltarr(4),perror:fltarr(4),chisq:0.0,rchisq:0.0,$
+  parr = fltarr(4)
+  if keyword_set(moffat) then parr=fltarr(5)
+  extstr = replicate({num:0L,x:0.0,pars:parr,perror:parr,chisq:0.0,rchisq:0.0,$
                       flux:0.0,err:0.0,mask:0,status:0,boxflux:0.0},apim.nx)
   extstr.num = lindgen(apim.nx)+1
   extstr.x = apim.x
   model = apim.flux*0
   for i=0,apim.nx-1 do begin
-    parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
-    parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
-    parinfo[1].fixed = 1
-    parinfo[2].fixed = 1
-    parinfo[3].limited = 1     & parinfo[3].limits = [-100,500]
-    estimates = [apim.flux[i,round(ytrace[i]-y0)]>1, ytrace[i], sigtrace[i], 0.0]
-    ;ysrt = round(ytrace[i]-y0-5*sigtrace[i])
-    ;yend = round(ytrace[i]-y0+5*sigtrace[i])    
-    ysrt = round(ylo[i])-y0 + 3
-    yend = round(yhi[i])-y0 - 3
 
-    pars = mpfitfun('gaussian',apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,$
-                    estimates,parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
+    ;; Gaussian
+    if not keyword_set(moffat) then begin
+      parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
+      parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
+      parinfo[1].fixed = 1
+      parinfo[2].fixed = 1
+      parinfo[3].limited = 1     & parinfo[3].limits = [-100,500]
+      estimates = [apim.flux[i,round(ytrace[i]-y0)]>1, ytrace[i], sigtrace[i], 0.0]
+      ;ysrt = round(ytrace[i]-y0-5*sigtrace[i])
+      ;yend = round(ytrace[i]-y0+5*sigtrace[i])    
+      ysrt = round(ylo[i])-y0 + 3
+      yend = round(yhi[i])-y0 - 3
+
+      func = 'gaussian'
+      pars = mpfitfun(func,apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,$
+                      estimates,parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
+      flux = pars[0]*pars[2]*sqrt(2*!dpi)      
+    endif else begin
+      parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},5)
+      parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
+      parinfo[1].fixed = 1
+      parinfo[2].fixed = 1
+      parinfo[3].fixed = 1
+      parinfo[4].limited = 1     & parinfo[4].limits = [-100,500]      
+      estimates = [apim.flux[i,round(ytrace[i]-y0)]>1, ytrace[i], hwhmtrace[i], mofftrace[i], 0.0]
+      ;ysrt = round(ytrace[i]-y0-5*sigtrace[i])
+      ;yend = round(ytrace[i]-y0+5*sigtrace[i])    
+      ysrt = round(ylo[i])-y0 + 3
+      yend = round(yhi[i])-y0 - 3
+
+      func = 'fire_moffat'
+      pars = mpfitfun(func,apim.y[ysrt:yend],reform(apim.flux[i,ysrt:yend]),reform(apim.err[i,ysrt:yend])>1,$
+                      estimates,parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
+      mfit = fire_moffat(apim.y[ysrt:yend],[pars[0:3],0.0])
+      flux = total(mfit)
+    endelse
     rchisq = chisq/n_elements(apim.flux[i,ysrt:yend])
     extstr[i].chisq = chisq
     extstr[i].rchisq = rchisq
-    flux = pars[0]*pars[2]*sqrt(2*!dpi)
+
     ;; Boxcar flux
     recflux = reform(recim.flux[i,*])
     recmask = reform(recim.mask[i,*])
@@ -99,9 +120,11 @@ pro fire_extract_order,tstr,im,extstr,model,arc=arc,recenter=recenter,yrecenter=
       fluxin = reform(apim.flux[i,ysrt:yend])
       errin = reform(apim.err[i,ysrt:yend])>1
       sig = mad((fluxin-yfit1)/errin,/zero)
-      gd = where(abs((fluxin-yfit1)/errin) lt 5*sig,ngd,comp=bd,ncomp=nbd)
+      ;; the pixel values tend to be low
+      ;;gd = where(abs((fluxin-yfit1)/errin) lt -5*sig,ngd,comp=bd,ncomp=nbd)
+      bd = where((fluxin-yfit1)/errin lt -5*sig,nbd,comp=gd,ncomp=ngd)      
       if nbd gt 0 then begin
-        pars = mpfitfun('gaussian',yin[gd],fluxin[gd],errin[gd],estimates2,$
+        pars = mpfitfun(func,yin[gd],fluxin[gd],errin[gd],estimates2,$
                         parinfo=parinfo,perror=perror,status=status,yfit=yfit,bestnorm=chisq,/quiet)
         rchisq = chisq/ngd
         extstr[i].chisq = chisq
@@ -127,6 +150,7 @@ pro fire_extract_order,tstr,im,extstr,model,arc=arc,recenter=recenter,yrecenter=
       extstr[i].err = 1e30
       extstr[i].mask = 0      
     endelse
-  endfor
 
+  endfor
+  
 end

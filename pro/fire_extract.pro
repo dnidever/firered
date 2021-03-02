@@ -1,4 +1,5 @@
-pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpmfile,outdir=outdir
+pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpmfile,$
+                 moffat=moffat,outdir=outdir
 
   if n_elements(outdir) eq 0 then outdir='finalspec/'
   
@@ -8,6 +9,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
   if n_elements(bndfile) eq 0 then bndfile = 'fire_boundary_0011.fits'
   if n_elements(tracefile) eq 0 then tracefile = 'fire_trace_0084.fits'  
   if n_elements(bpmfile) eq 0 then bpmfile = 'bpm3.fits'
+  if n_elements(moffat) eq 0 then moffat=1
 
   ;; Load the data
   obj = fire_makeimage(objfile)
@@ -52,7 +54,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
     print,strtrim(nslines,2),' sky lines found'
     ;; Extract the object spectrum
     apim = FIRE_GETORDERIMAGE(tstr1,obj)
-    FIRE_EXTRACT_ORDER,tstr1,subobj,spec,objmodel1
+    FIRE_EXTRACT_ORDER,tstr1,subobj,spec,objmodel1,moffat=moffat
     objmodel[min(apim.x):max(apim.x),min(apim.y):max(apim.y)] += objmodel1
     outobj[i].data = ptr_new(spec)
     

@@ -34,6 +34,8 @@ function fire_scale_trace,tstr,im
   medsig = median(sig)
   scale = psfpars[2]/medsig
   tstr.tsigcoef *= scale
+  tstr.thwhmcoef *= scale
+  tstr.tmoffcoef *= scale  
   print,'Rescale = ',strtrim(scale,2)
   
   return, tstr
