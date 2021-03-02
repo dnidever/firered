@@ -1,4 +1,4 @@
-function fire_recenter,tstr,im
+function fire_scale_trace,tstr,im
 
   ;; Recenter the aperture
   ;; tstr - trace structure for this order

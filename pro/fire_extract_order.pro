@@ -74,9 +74,18 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
     extstr[i].rchisq = rchisq
     flux = pars[0]*pars[2]*sqrt(2*!dpi)
     ;; Boxcar flux
-    boxflux = total(recim.flux[i,*],2)
+    recflux = reform(recim.flux[i,*])
+    recmask = reform(recim.mask[i,*])
+    ylo = round(recim.ny/2-3*sigtrace[i])
+    yhi = round(recim.ny/2+3*sigtrace[i])
+    back = [recflux[0:ylo-1],recflux[yhi+1:*]]
+    backmask = [recmask[0:ylo-1],recmask[yhi+1:*]]
+    gdback = where(backmask eq 1,ngdback)
+    medback = 0.0
+    if ngdback gt 0 then medback=median(back[gdback])
+    boxflux = total((recflux[ylo:yhi]-medback)>0)
     extstr[i].boxflux = boxflux
-
+    
     ;; If the Gaussian fit flux is much lower than the boxcar flux
     ;; then refit with outlier rejection
     if status gt 0 and flux lt boxflux*0.8 then begin
@@ -115,9 +124,6 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
       extstr[i].mask = 0      
     endelse
   endfor
-
-
-  ;; x=846, y=140
 
   
   return, extstr
