@@ -1,19 +1,21 @@
-pro fire_extract,objfile,arcfile,tracefile,bpmfile
+pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpmfile,outdir=outdir
 
+  if n_elements(outdir) eq 0 then outdir='finalspec/'
+  
   ;objfile = 'ut131222/fire_0046.fits'
   objfile = 'ut131222/fire_0084.fits'
   arcfile = 'ut131222/fire_0047.fits'
-  boundaryfile = 'fire_boundary_0011.fits'
-  tracefile = 'fire_trace_0084.fits'  
-  bpmfile = 'bpm3.fits'
+  if n_elements(bndfile) eq 0 then bndfile = 'fire_boundary_0011.fits'
+  if n_elements(tracefile) eq 0 then tracefile = 'fire_trace_0084.fits'  
+  if n_elements(bpmfile) eq 0 then bpmfile = 'bpm3.fits'
 
+  ;; Load the data
   obj = fire_makeimage(objfile)
   arc = fire_makeimage(arcfile)
   bpm = fire_makeimage(bpmfile)
-  bstr = mrdfits(boundaryfile,1)
+  bstr = mrdfits(bndfile,1)
   tstr = mrdfits(tracefile,1)  
   norders = n_elements(bstr)
-  npix = 2048
   
   ;; Correct for bpm
   obj = fire_bpmcorrect(obj,bpm)
@@ -25,7 +27,6 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   ;; Do flat field correction
   
   ;; Order loop
-  x = findgen(npix)
   outobj = replicate({order:0,data:ptr_new()},norders)
   outobj.order = lindgen(norders)+1
   outarc = replicate({order:0,data:ptr_new()},norders)  
@@ -35,6 +36,7 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
   mask = intarr(obj.nx,norders)
   undefine,arclines
   undefine,skylines
+  objmodel = obj.flux*0
   For i=1,norders-1 do begin
   ;For i=20,20 do begin     
     print,'order = ',i
@@ -49,7 +51,9 @@ pro fire_extract,objfile,arcfile,tracefile,bpmfile
     if nslines gt 0 then push,skylines,slinestr
     print,strtrim(nslines,2),' sky lines found'
     ;; Extract the object spectrum
-    spec = FIRE_EXTRACT_ORDER(tstr1,subobj)
+    apim = FIRE_GETORDERIMAGE(tstr1,obj)
+    FIRE_EXTRACT_ORDER,tstr1,subobj,spec,objmodel1
+    objmodel[min(apim.x):max(apim.x),min(apim.y):max(apim.y)] += objmodel1
     outobj[i].data = ptr_new(spec)
     
     ;; Fill in the spectrum information

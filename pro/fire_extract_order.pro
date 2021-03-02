@@ -1,4 +1,4 @@
-function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecenter
+pro fire_extract_order,tstr,im,extstr,model,arc=arc,recenter=recenter,yrecenter=yrecenter
 
   ;; maybe use fire_rectify_order.pro here
 
@@ -52,9 +52,11 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
   recim = fire_rectify_order(tstr,im,/exact)
   
   ;; Extract each column
-  extstr = replicate({num:0L,pars:fltarr(4),perror:fltarr(4),chisq:0.0,rchisq:0.0,$
+  extstr = replicate({num:0L,x:0.0,pars:fltarr(4),perror:fltarr(4),chisq:0.0,rchisq:0.0,$
                       flux:0.0,err:0.0,mask:0,status:0,boxflux:0.0},apim.nx)
   extstr.num = lindgen(apim.nx)+1
+  extstr.x = apim.x
+  model = apim.flux*0
   for i=0,apim.nx-1 do begin
     parinfo = replicate({limited:[0,0],limits:[0.0,0.0],fixed:0},4)
     parinfo[0].limited[0] = 1  & parinfo[0].limits[0] = 0.0
@@ -118,14 +120,13 @@ function fire_extract_order,tstr,im,arc=arc,recenter=recenter,yrecenter=yrecente
       extstr[i].flux = pars[0]*pars[2]*sqrt(2*!dpi)
       extstr[i].err = extstr[i].flux * sqrt( (perror[0]/pars[0])^2 + (perror[2]/pars[2])^2 )
       extstr[i].mask = 1
+      ;; add the model
+      model[i,*] = gaussian(apim.y,[pars[0],pars[1],pars[2],0.0])
     endif else begin
       extstr[i].flux = 1e30
       extstr[i].err = 1e30
       extstr[i].mask = 0      
     endelse
   endfor
-
-  
-  return, extstr
 
 end
