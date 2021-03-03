@@ -1,6 +1,8 @@
-pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat,outdir=outdir
+pro fire_ccdproc,input,bpm=bpm,dark=dark,flat=flat,outdir=outdir
 
-  files = 'ut131222/fire_0084.fits'
+  ;files = 'ut131222/fire_0084.fits'
+
+  LOADINPUT,input,files,count=nfiles
   
   ;; Main CCD reduction steps
   nfiles = n_elements(files)
@@ -29,14 +31,17 @@ pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat,outdir=outdir
       print,file,' NOT FOUND'
       goto,BOMB
     endif
-    print,strtrim(i+1,2),' ',file
-    base = file_basename(file,'.fits')
-    
+
     ;; Load the image
     FITS_READ,file,flux,head
     sz = size(flux)
     nx = sz[1]
     ny = sz[2]
+
+    object = sxpar(head,'object')
+    exptype = sxpar(head,'exptype')
+    exptime = sxpar(head,'exptime')    
+    print,strtrim(i+1,2),' ',file,' ',object,' ',exptype,' ',exptime
 
     ;; Fix "flipped" pixels
     bd = where(flux lt -1000,nbd)
@@ -87,13 +92,23 @@ pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat,outdir=outdir
     im = FIRE_FLATCORRECT(im,imflat)
 
     ;; Write output file
-    outfile = outdir+'/'+base+'_red.fits'
+    base = file_basename(file,'.fits')
+    num = strmid(base,5)
+    ;; use useful prefix, obj, arc, tell
+    suff = 'im'
+    if strlowcase(exptype) eq 'science' then suff='obj'
+    if strlowcase(exptype) eq 'arc' then suff='arc'
+    if strlowcase(exptype) eq 'telluric' then suff='tell'    
+    ;if strlowcase(object) eq 'thne' or strlowcase(object) eq 'thar' then suff='arc'
+    ;if stregex(object,'telluric',/boolean,/fold_case) eq 1 then suff='tell'
+    outfile = outdir+'/'+suff+num+'.fits'
+    
     print,'Writing reduced file to ',outfile
     FIRE_WRITEIMAGE,im,outfile
     
     BOMB:
   Endfor  ; file loop
      
-  stop
+  ;stop
 
   end
