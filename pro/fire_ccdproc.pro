@@ -1,5 +1,7 @@
-pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat
+pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat,outdir=outdir
 
+  files = 'ut131222/fire_0084.fits'
+  
   ;; Main CCD reduction steps
   nfiles = n_elements(files)
   print,strtrim(nfiles,2),' files to process'
@@ -8,11 +10,17 @@ pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat
   if n_elements(bpm) eq 0 then bpm = 'bpm3.fits'  
   if n_elements(dark) eq 0 then dark = 'dark.fits'
   if n_elements(flat) eq 0 then flat = 'flat.fits'  
-
+  if n_elements(outdir) eq 0 then outdir = 'red/'
+  if file_test(outdir,/directory) eq 0 then file_mkdir,outdir
+  print,'BPM file = ',bpm
+  print,'Dark file = ',dark
+  print,'Flat file = ',flat
+  print,'Output directory = ',outdir
+  
   ;; Load calibration products
-  imbpm = FIRE_MAKEIMAGE(bpm)
-  imfldark = FIRE_MAKEIMAGE(dark)
-  imflat = FIRE_MAKEIMAGE(flat)  
+  imbpm = FIRE_READIMAGE(bpm)
+  imdark = FIRE_READIMAGE(dark)
+  imflat = FIRE_READIMAGE(flat)  
   
   ;; File loop
   For i=0,nfiles-1 do begin
@@ -21,26 +29,68 @@ pro fire_ccdproc,files,bpm=bpm,dark=dark,flat=flat
       print,file,' NOT FOUND'
       goto,BOMB
     endif
-     
-    ;; Read in the file
-    im = FIRE_MAKEIMAGE(file)
+    print,strtrim(i+1,2),' ',file
+    base = file_basename(file,'.fits')
+    
+    ;; Load the image
+    FITS_READ,file,flux,head
+    sz = size(flux)
+    nx = sz[1]
+    ny = sz[2]
 
-    ;; Fix wraparound pixels
-    ;; this is done in makeimage
-    ;bd = where(im.flux lt -1000,nbd)
-    ;if nbd gt 0 then im.flux[bd] += 65536
+    ;; Fix "flipped" pixels
+    bd = where(flux lt -1000,nbd)
+    if nbd gt 0 then flux[bd] += 65536
 
+    ;; Reference pixel correct
+    flux = FIRE_REFCORRECT(flux)
+    flux[*,0:3] = 0.0
+    flux[*,2044:*] = 0.0
+    flux[0:3,*] = 0.0
+    flux[2044:*,*] = 0.0    
+
+    ;; Make the error array
+    ;; Gain
+    gain = 1.0
+    if n_elements(head) gt 0 then begin
+      hdgain = sxpar(head,'gain',count=ngain)  ; electrons/DU     
+      if ngain gt 0 then gain=hdgain
+    endif
+    ;; Read noise
+    rdnoise = 0.0
+    if n_elements(head) gt 0 then begin
+      hdrdnoise = sxpar(head,'enoise',count=nrdnoise)  ; electrons/read
+      if nrdnoise gt 0 then rdnoise=hdrdnoise
+    endif  
+    ;; Error array
+    if n_elements(err) eq 0 then begin
+       ;; poisson error in electrons = sqrt((flux>1)*gain)
+       ;; rdnoise (in electrons)
+       ;; add in quadrature
+       ;; err[e] = sqrt( (flux>1)*gain) + rdnoise^2)
+       ;; convert back to ADU
+       ;; err[ADU] = sqrt( (flux>1)*gain) + rdnoise^2)/gain
+       ;;          = sqrt( (flux>1)/gain + (rdnoise/gain)^2 )
+       err = sqrt((flux>1)/gain + (rdnoise/gain)^2)
+    endif
+
+    ;; Make the image object
+    im = FIRE_MAKEIMAGE(flux,err=err,head=head)
+    
     ;; Bad pixel mask
     im = FIRE_BPMCORRECT(im,imbpm)
-
+    
     ;; Dark correction
     im = FIRE_DARKCORRECT(im,imdark)
-
+    
     ;; Flat correction
     im = FIRE_FLATCORRECT(im,imflat)
 
     ;; Write output file
-
+    outfile = outdir+'/'+base+'_red.fits'
+    print,'Writing reduced file to ',outfile
+    FIRE_WRITEIMAGE,im,outfile
+    
     BOMB:
   Endfor  ; file loop
      

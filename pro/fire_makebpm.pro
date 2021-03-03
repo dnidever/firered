@@ -1,7 +1,9 @@
 pro fire_makebpm,file,outfile
 
-  ;;  --- making bpm ---
   file = 'ut131222/fire_0019.fits'
+  outfile = 'bpm3.fits'
+  
+  ;;  --- making bpm ---
   fits_read,file,im,head
   med = median(im,11)
   npix = 2048
@@ -22,7 +24,10 @@ pro fire_makebpm,file,outfile
   crossmask = convol(float(mask),cross)
   mask = mask or (crossmask eq 4)
   
-  ;mwrfits,mask,outfile,/create
+  print,'Writing to ',outfile
+  mkhdr,outhead,mask
+  sxaddpar,outhead,'exptype','BPM'
+  mwrfits,mask,outfile,outhead,/create
 
 stop
 

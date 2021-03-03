@@ -1,4 +1,4 @@
-function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
+function fire_makeimage,input,err=inperr,mask=inpmask,x=x,y=y,head=head
 
   ;; Make an image object
 
@@ -41,19 +41,23 @@ function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
     if nrdnoise gt 0 then rdnoise=hdrdnoise
   endif  
   ;; Error array
-  if n_elements(err) eq 0 then begin
-     ;; poisson error in electrons = sqrt((flux>1)*gain)
-     ;; rdnoise (in electrons)
-     ;; add in quadrature
-     ;; err[e] = sqrt( (flux>1)*gain) + rdnoise^2)
-     ;; convert back to ADU
-     ;; err[ADU] = sqrt( (flux>1)*gain) + rdnoise^2)/gain
-     ;;          = sqrt( (flux>1)/gain + (rdnoise/gain)^2 )
-     err = sqrt((flux>1)/gain + (rdnoise/gain)^2)
-  endif
+  if n_elements(inperr) eq 0 then begin
+     if size(flux,/type) gt 1 then begin
+       ;; poisson error in electrons = sqrt((flux>1)*gain)
+       ;; rdnoise (in electrons)
+       ;; add in quadrature
+       ;; err[e] = sqrt( (flux>1)*gain) + rdnoise^2)
+       ;; convert back to ADU
+       ;; err[ADU] = sqrt( (flux>1)*gain) + rdnoise^2)/gain
+       ;;          = sqrt( (flux>1)/gain + (rdnoise/gain)^2 )
+       err = sqrt((float(flux)>1)/gain + (rdnoise/gain)^2)
+     endif else err=intarr(nx,ny)+1
+  endif else err=inperr
   im = create_struct(im,'err',err)
   ;; Mask
-  if n_elements(mask) eq 0 then mask=bytarr(nx,ny)+1
+  if n_elements(mask) eq 0 then begin
+     mask = bytarr(nx,ny)+1
+  endif else mask=inpmask
   im = create_struct(im,'mask',mask)
   ;; X and Y arrays
   if n_elements(x) eq 0 then x=lindgen(nx)
@@ -69,7 +73,7 @@ function fire_makeimage,input,err=err,mask=mask,x=x,y=y,head=head
     if nexptype gt 0 then begin
       exptype = strlowcase(hdexptype)
     endif else begin
-       if stregex(input,'bpm',/boolean,/fold_case) eq 1 then exptype='bpm'
+       if size(input,/type) eq 7 then if stregex(input,'bpm',/boolean,/fold_case) eq 1 then exptype='bpm'
     endelse
   endif
   if strlowcase(exptype) eq 'science' then exptype='object'
