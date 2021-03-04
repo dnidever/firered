@@ -1,7 +1,6 @@
 pro fire_ccdproc,input,bpm=bpm,dark=dark,flat=flat,outdir=outdir
 
-  ;files = 'ut131222/fire_0084.fits'
-
+  ;; Load the input
   LOADINPUT,input,files,count=nfiles
   
   ;; Main CCD reduction steps
