@@ -123,6 +123,21 @@ pro fire_fix_headers
   
   ;mwrfits,all,'fire_info.fits',/create
 
+
+  ;; Fix extra exposures based on the logsheets
+  fix = importascii('fix_headers.txt',delim=string(9B),fieldnames=['num','object'])
+  for i=0,n_elements(fix)-1 do begin
+    file = file_search('ut13122?/fire_'+string(fix[i].num,format='(i04)')+'.fits',count=nfile)
+    if nfile eq 0 then stop,'no file'
+    head = headfits(file)
+    object = sxpar(head,'object')
+    print,num[i],' ',object,' -> ',fix[i].object
+    sxaddpar,head,'object',fix[i].object
+    modfits,file,0,head
+  endfor
+
+  
+  
 ;; a handful of exposures from night 2 don't have IDs
 ;;ut131223/fire_0110.fits        42.677975       -19.506407 Science       10.6000 Dark  fixed by hand
 ;;ut131223/fire_0111.fits        42.677975       -19.506407 Science       21.2000 Dark  fixed by hand

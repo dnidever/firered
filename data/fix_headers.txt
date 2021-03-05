@@ -1,0 +1,21 @@
+34	Telluric, HIP23252
+35	130L274a_14.1412
+36	ThAr 130L274a_14.1412 
+42	Telluric, HD33717
+43	Telluric, HD33717
+49	Telluric, HIP13127
+58	Telluric, HD17683
+64	Telluric, HD43373
+71	Telluric, HD33243
+77	Telluric, HIP26945
+125	Telluric, HD30277
+126	Telluric, HD30277
+138	Telluric, HD67171
+139	Telluric, HD67171
+150	Telluric, HIP47606
+151	Telluric, HIP47606
+162	Telluric, HD82520
+163	Telluric, HD82520
+174	Telluric, HIP30360
+180	Telluric, HIP40949
+259	Telluric, HD62139
