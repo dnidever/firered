@@ -22,7 +22,8 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   y0 = apim.y[0]
   
   ;; Rectify to find peaks
-  recim = fire_rectify_order(tstr,im,/exact)
+  ;recim = fire_rectify_order(tstr,im,/exact)
+  recim = fire_rectify_order(tstr,im,/exact,/detilt)  
 
   
   ;; Find the peaks

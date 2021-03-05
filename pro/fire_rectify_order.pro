@@ -1,4 +1,4 @@
-function fire_rectify_order,tstr,im,exact=exact
+function fire_rectify_order,tstr,im,exact=exact,detilt=detilt,tilt=tilt
 
   ;; tstr - trace structure for one order
   ;; im - original image structure
@@ -167,7 +167,62 @@ function fire_rectify_order,tstr,im,exact=exact
       recmask[*,0:n_elements(tempmask[0,*])-1] = tempmask
     endelse
   endif
-  
+
+  ;; Detilt
+  if keyword_set(detilt) then begin
+    if n_elements(tilt) eq 0 then tilt=0.23
+    sz = size(recim)
+    ny = sz[2]
+    x = findgen(sz[1])
+    detiltim = recim*0
+    detilterr = recim*0
+    detiltmask = recim*0    
+    for i=0,ny-1 do begin
+      y1 = i-ny/2  ;; relative to ycenter
+      xsh1 = y1*tilt
+      xsh = x-xsh1
+      if total(recmask[*,i],/int) gt 0 then begin
+        gd = where(xsh ge 0 and xsh le max(x) and recmask[*,i] eq 1,ngd)      
+        detiltim1 = spline(xsh,recim[*,i],x[gd])
+        detiltim[gd,i] = detiltim1
+        ;; Interpolate the mask
+        interp,xsh,recmask[*,i],x,detiltmask1
+        detiltmask[*,i] = 1
+        bdmask = where(detiltmask1 lt 0.5,nbdmask)
+        if nbdmask gt 0 then detiltmask[bdmask,i] = 0
+        ;; Interpolate err
+        ;;detilterr1 = spline(xsh,recerr[*,i],x[gd])
+        errin = recim[*,i]
+        gdin = where(recmask[*,i] eq 1,ngdin,comp=bdin,ncomp=nbdin)
+        if nbdin gt 0 then begin
+          interp,gdin,errin[gdin],bdin,bderr
+          errin[bdin] = bderr
+        endif
+        interp,xsh[gdin],errin[gdin],x,errout
+        bderrout = where(errout gt 1e20,nbderrout)
+        if nbderrout gt 0 then errout[bderrout] = 1e30
+        if nbdmask gt 0 then errout[bdmask] = 1e30
+        detilterr[*,i] = errout
+      ;; No good pixels
+      endif else begin
+        detiltim[*,i] = 0
+        detilterr[*,i] = 1e30
+        detiltmask[*,i] = 0         
+      endelse
+        
+      ;stop
+    endfor
+
+;; maybe use TRIGRID to do both Y+X shifts at once?
+
+    recim0 = recim
+    recerr0 = recerr
+    recmask0 = recmask    
+    recim = detiltim
+    recerr = detilterr
+    recmask = detiltmask   
+  endif
+
   ;; Create image object
   sz = size(recim)
   out = {file:im.file,flux:recim,err:recerr,mask:recmask,$
