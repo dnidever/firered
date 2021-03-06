@@ -18,4 +18,5 @@
 163	Telluric, HD82520
 174	Telluric, HIP30360
 180	Telluric, HIP40949
+223	169L333a 1.780
 259	Telluric, HD62139
