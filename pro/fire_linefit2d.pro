@@ -22,9 +22,8 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   y0 = apim.y[0]
   
   ;; Rectify to find peaks
-  ;recim = fire_rectify_order(tstr,im,/exact)
-  recim = fire_rectify_order(tstr,im,/exact,/detilt)  
-
+  recim = fire_rectify_order(tstr,im,/exact)
+  ;recim = fire_rectify_order(tstr,im,/exact,/detilt)  
   
   ;; Find the peaks
   xrec = findgen(recim.nx)
@@ -69,6 +68,7 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   
   ;; Get initial estimate for slope
   slp = -xsh/(mean([recim.ny/2+5,recim.ny-6])-mean([5,recim.ny/2-5]))
+  ;slp = 0.23
   
   ;; FIRST, fit the lines in rectified space
   ;;-----------------------------------------
@@ -76,8 +76,8 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   ;; Fit the lines
   residim1 = recim.flux
   model1 = recim.flux*0
-  
-  linestr1 = replicate({num:0L,pars:fltarr(6),status:0},nlines)
+
+  linestr1 = replicate({num:0L,pars:fltarr(6),perror:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)  
   linestr1.num = lindgen(nlines)+1
   for j=0,nlines-1 do begin
     ;; Get the subimage
@@ -123,10 +123,11 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
     fa = {y0:3,y1:nysub1-3,mask:mask1}    
     ;;fa = {mask:mask1}
     pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,$
-                       status=status,functargs=fa,yfit=yfit1,/quiet)
+                       status=status,functargs=fa,perror=perror1,yfit=yfit1,/quiet)
     linestr1[j].status = status
     if status gt 0 then begin
       linestr1[j].pars = pars1
+      linestr1[j].perror = perror1     
       gmodel1 = fire_gauss2d(xx,yy,pars1,_extra=fa)  ;; model with offset and trimming/masking
       tpars1 = pars1    ; no offset
       tpars1[5] = 0.0 
@@ -144,7 +145,7 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   residim = apim.flux
   model = apim.flux*0
   
-  linestr = replicate({num:0L,pars:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)
+  linestr = replicate({num:0L,pars:fltarr(6),perror:fltarr(6),xtrace:0.0,ytrace:0.0,status:0},nlines)
   linestr.num = lindgen(nlines)+1
   lmodel = fltarr(apim.nx)
   for j=0,nlines-1 do begin
@@ -194,11 +195,12 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
     ;;subim1[*,0:3] = 0
     ;;subim1[*,nysub1-3:*] = 0
     pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,$
-                       status=status,functargs=fa,yfit=yfit1,/quiet)
+                       status=status,functargs=fa,perror=perror1,yfit=yfit1,/quiet)
     print,pars1
     linestr[j].status = status
     if status gt 0 then begin
       linestr[j].pars = pars1
+      linestr[j].perror = perror1      
       gmodel1 = fire_gauss2d(xx,yy,pars1,_extra=fa)  ;; model with offset and trimming/masking
       tpars1 = pars1    ; no offset
       tpars1[5] = 0.0 

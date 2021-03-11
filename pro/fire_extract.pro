@@ -46,7 +46,11 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
 
     ;; Get arc lines
     FIRE_LINEFIT2D,tstr1,arc,subarc,alinestr,amodel,aresidim,almodel,count=nalines,/arc
-    if nalines gt 0 then push,arclines,alinestr
+    if nalines gt 0 then begin
+      add_tag,alinestr,'type','arc',alinestr
+      add_tag,alinestr,'order',i,alinestr        
+      push,arclines,alinestr
+    endif
     print,'  ',strtrim(nalines,2),' arc lines found'
 
     arcrecim = FIRE_RECTIFY_ORDER(tstr1,arc,/exact)
@@ -54,7 +58,11 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
     
     ;; Remove sky lines
     FIRE_LINEFIT2D,tstr1,obj,subobj,slinestr,smodel,sresidim,slmodel,count=nslines
-    if nslines gt 0 then push,skylines,slinestr
+    if nslines gt 0 then begin
+      add_tag,slinestr,'type','sky',slinestr
+      add_tag,slinestr,'order',i,slinestr 
+      push,skylines,slinestr
+    endif
     print,'  ',strtrim(nslines,2),' sky lines found'
 
     ;; Extract the object spectrum
@@ -72,7 +80,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
     ;; maybe scale PSF when doing recenter?
     ;; Maye try Moffat function instead
     
-    stop
+    ;stop
   Endfor  ;; order loop
 
   ;; 123 sky lines, 244 arc lines
@@ -81,8 +89,17 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,bpmfile=bpm
 
   ;; Get Wavelength for each order
 
-stop
+  lines = [arclines,skylines]
+  gd = where(lines.pars[0] gt 0 and lines.status gt 0,ngd)
+  lines = lines[gd]
+  ;;mwrfits,lines,'fire_lines.fits',/create
   
+stop
+
+  base = file_basename(objfile,'.fits')
+  MWRFITS,arclines,outdir+'/'+base+'_lines.fits',/create
+  MWRFITS,skylines,outdir+'/'+base+'_lines.fits',/silent
+
   ;; Write out the information
   FIRE_WRITESPEC,spec,outfile
   outfile = 'xxxx.fits'
