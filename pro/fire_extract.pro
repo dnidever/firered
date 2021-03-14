@@ -52,9 +52,9 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
   nlsforder = 1
   nwaveorder = 3
   schema = {order:0,xlo:0L,xhi:0L,tycoef:fltarr(4),tsigcoef:fltarr(4),thwhmcoef:fltarr(4),tmoffcoef:fltarr(4),$
-            trecenter:0.0,trescale:0.0,flux:fltarr(obj.nx),err:fltarr(obj.nx),mask:intarr(obj.nx),$
-            wave:dblarr(obj.nx),wcoef:dblarr(nwaveorder+1),wrms:0.0,lsfcoef:dblarr(nlsforder+1),$
-            nskylines:0,narclines:0}
+            trecenter:0.0,trescale:0.0,flux:fltarr(obj.nx)+!values.f_nan,err:fltarr(obj.nx)+1e30,$
+            mask:intarr(obj.nx)+1,wave:dblarr(obj.nx),wcoef:dblarr(nwaveorder+1),wrms:0.0,$
+            lsfcoef:dblarr(nlsforder+1),nskylines:0,narclines:0}
   outstr = replicate(schema,norders)
   undefine,arclines
   undefine,skylines
@@ -108,7 +108,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     ;; Fill in the spectrum information
     outstr[i].flux[tstr1.bndx0:tstr1.bndx1] = spec.flux
     outstr[i].err[tstr1.bndx0:tstr1.bndx1] = spec.err
-    outstr[i].mask[tstr1.bndx0:tstr1.bndx1] = 1
+    outstr[i].mask[tstr1.bndx0:tstr1.bndx1] = 0
 
     ;; The Gaussian PSF fits aren't that great
     ;; maybe scale PSF when doing recenter?

@@ -196,7 +196,7 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
     ;;subim1[*,nysub1-3:*] = 0
     pars1 = mpfit2dfun('fire_gauss2d',xx,yy,subim1,suberr1,estimates,parinfo=parinfo,$
                        status=status,functargs=fa,perror=perror1,yfit=yfit1,/quiet)
-    print,pars1
+    ;print,pars1
     linestr[j].status = status
     if status gt 0 then begin
       linestr[j].pars = pars1
