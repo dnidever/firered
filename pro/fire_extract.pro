@@ -49,22 +49,30 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
   outobj.order = lindgen(norders)+1
   outarc = replicate({order:0,data:ptr_new()},norders)  
   outarc.order = lindgen(norders)+1
-  flux = fltarr(obj.nx,norders)
-  err = fltarr(obj.nx,norders)
-  mask = intarr(obj.nx,norders)
-  wave = dblarr(obj.nx,norders)
-  wcoef = fltarr(4,norders)
-  wrms = dblarr(norders)
-  lsfcoef = dblarr(3,norders)
+  nlsforder = 1
+  nwaveorder = 3
+  schema = {order:0,xlo:0L,xhi:0L,tycoef:fltarr(4),tsigcoef:fltarr(4),thwhmcoef:fltarr(4),tmoffcoef:fltarr(4),$
+            trecenter:0.0,trescale:0.0,flux:fltarr(obj.nx),err:fltarr(obj.nx),mask:intarr(obj.nx),$
+            wave:dblarr(obj.nx),wcoef:dblarr(nwaveorder+1),wrms:0.0,lsfcoef:dblarr(nlsforder+1),$
+            nskylines:0,narclines:0}
+  outstr = replicate(schema,norders)
   undefine,arclines
   undefine,skylines
   objmodel = obj.flux*0
   ;; skip first order, it has issues
   For i=1,norders-1 do begin
-  ;For i=20,20 do begin     
     print,'order = ',strtrim(i+1,2)
+    outstr[i].order = i+1 
     ;; Recenter/scale aperture 
-    tstr1 = FIRE_SCALE_TRACE(tstr[i],obj) ; recenter/scale
+    tstr1 = FIRE_SCALE_TRACE(tstr[i],obj,/pl) ; recenter/scale
+    outstr[i].xlo = tstr1.bndx0
+    outstr[i].xhi = tstr1.bndx1
+    outstr[i].trecenter = tstr1.recenter
+    outstr[i].trescale = tstr1.rescale
+    outstr[i].tycoef = tstr1.tycoef
+    outstr[i].tsigcoef = tstr1.tsigcoef
+    outstr[i].thwhmcoef = tstr1.thwhmcoef
+    outstr[i].tmoffcoef = tstr1.tmoffcoef    
 
     ;; Get arc lines
     FIRE_LINEFIT2D,tstr1,arc,subarc,alinestr,amodel,aresidim,almodel,count=nalines,/arc
@@ -75,6 +83,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     endif
     print,'  ',strtrim(nalines,2),' arc lines found'
     sxaddhist,'order '+strtrim(i+1,2)+':  '+strtrim(nalines,2)+' arc lines found',head
+    outstr[i].nskylines = nalines
     
     arcrecim = FIRE_RECTIFY_ORDER(tstr1,arc,/exact)
     arcspec = arcrecim.flux[*,arcrecim.ny/2]
@@ -88,6 +97,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     endif
     print,'  ',strtrim(nslines,2),' sky lines found'
     sxaddhist,'order '+strtrim(i+1,2)+':  '+strtrim(nslines,2)+' sky lines found',head
+    outstr[i].nskylines = nslines
     
     ;; Extract the object spectrum
     apim = FIRE_GETORDERIMAGE(tstr1,obj)
@@ -96,9 +106,9 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     outobj[i].data = ptr_new(spec)
     
     ;; Fill in the spectrum information
-    flux[tstr1.bndx0:tstr1.bndx1,i] = spec.flux
-    err[tstr1.bndx0:tstr1.bndx1,i] = spec.err
-    mask[tstr1.bndx0:tstr1.bndx1,i] = 1
+    outstr[i].flux[tstr1.bndx0:tstr1.bndx1] = spec.flux
+    outstr[i].err[tstr1.bndx0:tstr1.bndx1] = spec.err
+    outstr[i].mask[tstr1.bndx0:tstr1.bndx1] = 1
 
     ;; The Gaussian PSF fits aren't that great
     ;; maybe scale PSF when doing recenter?
@@ -114,57 +124,36 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
       if nmatch gt 0 then begin
         alinestr2 = alinestr[ind1]
         linelist2 = linelist1[ind2] 
-        coef2 = poly_fit(alinestr2.xtrace,linelist2.wave,2)
-        coef3 = poly_fit(alinestr2.xtrace,linelist2.wave,3)
-        wrms1 = sqrt(mean((linelist2.wave-poly(alinestr2.xtrace,coef3))^2))
-        wrms[i] = wrms1
-        print,'  Wave solution RMS = ',stringize(wrms1,ndec=5),' pixels'
-        sxaddhist,'order '+strtrim(i+1,2)+': Wave solution RMS = '+stringize(wrms1,ndec=5)+' pixels',head
+        wcoef = reform( poly_fit(alinestr2.xtrace,linelist2.wave,nwaveorder) )
+        wrms = sqrt(mean((linelist2.wave-poly(alinestr2.xtrace,wcoef))^2))
+        outstr[i].wrms = wrms
+        print,'  Wave solution RMS = ',stringize(wrms,ndec=5),' pixels'
+        sxaddhist,'order '+strtrim(i+1,2)+': Wave solution RMS = '+stringize(wrms,ndec=5)+' pixels',head
         
         xorder = lindgen(tstr1.bndx1-tstr1.bndx0+1)+tstr1.bndx0
-        wave[tstr1.bndx0:tstr1.bndx1,i] = poly(xorder,coef3)
-        wcoef[*,i] = coef3
+        outstr[i].wave[tstr1.bndx0:tstr1.bndx1] = poly(xorder,wcoef)
+        outstr[i].wcoef = wcoef
         ;if wrms1 gt 0.1 then stop,'bad solution!'
       endif
     endif else print,'  Nothing for this order in the linelist'
 
     ;; Get LSF coef each order
-    lsfcoef1 = robust_poly_fit(alinestr.xtrace,alinestr.pars[1],1)
+    lsfcoef = reform( robust_poly_fit(alinestr.xtrace,alinestr.pars[1],nlsforder) )
     ;glsf = where(alinestr.perror[1] gt 0.0,nglsf)
-    ;if nglsf gt 2 then lsfcoef1 = robust_poly_fit(alinestr[glsf].xtrace,alinestr[glsf].pars[1],1)
+    ;if nglsf gt 2 then lsfcoef = robust_poly_fit(alinestr[glsf].xtrace,alinestr[glsf].pars[1],nlsforder)
     ;plot,alinestr.xtrace,alinestr.pars[1],ps=8
     ;x = findgen(2048)
-    ;oplot,x,poly(x,lsfcoef1),co=250
-    lsfcoef[0,i] = lsfcoef1
+    ;oplot,x,poly(x,lsfcoef),co=250
     sxaddhist,'order '+strtrim(i+1,2)+': mean LSF Gaussian sigma '+stringize(median(alinestr.pars[1]),ndec=3)+' pixels',head
+    outstr[i].lsfcoef = lsfcoef
     
     ;stop
   Endfor  ;; order loop
-
-  ;lines = [arclines,skylines]
-  ;gd = where(lines.pars[0] gt 0 and lines.status gt 0,ngd)
-  ;lines = lines[gd]
-  ;;;mwrfits,lines,'fire_lines.fits',/create
-  ;base = file_basename(objfile,'.fits')
-  ;MWRFITS,arclines,outdir+'/'+base+'_lines.fits',/create
-  ;MWRFITS,skylines,outdir+'/'+base+'_lines.fits',/silent
-
-  sxaddhist,'HDU0: Flux',head
-  sxaddhist,'HDU1: Error',head  
-  sxaddhist,'HDU2: Mask',head
-  sxaddhist,'HDU3: Wavelength',head
-  sxaddhist,'HDU4: Wavelength coefficients',head
-  sxaddhist,'HDU5: LSF coefficients',head
   
   ;; Write out the information
   ;FIRE_WRITESPEC,spec,outfile
   print,'Writing spectrum to ',outfile
-  MWRFITS,flux,outfile,head,/create
-  MWRFITS,err,outfile,/silent
-  MWRFITS,mask,outfile,/silent
-  MWRFITS,wave,outfile,/silent
-  MWRFITS,wcoef,outfile,/silent
-  MWRFITS,lsfcoef,outfile,/silent
-  ;stop
+  MWRFITS,0,outfile,head,/create
+  MWRFITS,outstr,outfile,/silent
 
 end
