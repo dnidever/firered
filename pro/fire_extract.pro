@@ -138,16 +138,17 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     endif else print,'  Nothing for this order in the linelist'
 
     ;; Get LSF coef each order
-    lsfcoef = reform( robust_poly_fit(alinestr.xtrace,alinestr.pars[1],nlsforder) )
-    ;glsf = where(alinestr.perror[1] gt 0.0,nglsf)
-    ;if nglsf gt 2 then lsfcoef = robust_poly_fit(alinestr[glsf].xtrace,alinestr[glsf].pars[1],nlsforder)
-    ;plot,alinestr.xtrace,alinestr.pars[1],ps=8
-    ;x = findgen(2048)
-    ;oplot,x,poly(x,lsfcoef),co=250
-    sxaddhist,'order '+strtrim(i+1,2)+': mean LSF Gaussian sigma '+stringize(median(alinestr.pars[1]),ndec=3)+' pixels',head
+    if nalines gt 0 then begin
+      lsfcoef = reform( robust_poly_fit(alinestr.xtrace,alinestr.pars[1],nlsforder) )
+      ;glsf = where(alinestr.perror[1] gt 0.0,nglsf)
+      ;if nglsf gt 2 then lsfcoef = robust_poly_fit(alinestr[glsf].xtrace,alinestr[glsf].pars[1],nlsforder)
+      ;plot,alinestr.xtrace,alinestr.pars[1],ps=8
+      ;x = findgen(2048)
+      ;oplot,x,poly(x,lsfcoef),co=250
+      sxaddhist,'order '+strtrim(i+1,2)+': mean LSF Gaussian sigma '+stringize(median(alinestr.pars[1]),ndec=3)+' pixels',head
+    endif else lsfcoef = [1.5,0.0]
     outstr[i].lsfcoef = lsfcoef
     
-    ;stop
   Endfor  ;; order loop
   
   ;; Write out the information
