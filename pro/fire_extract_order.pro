@@ -101,8 +101,12 @@ pro fire_extract_order,tstr,im,extstr,model,arc=arc,moffat=moffat,yrecenter=yrec
     recmask = reform(recim.mask[i,*])
     yblo = round(recim.ny/2-3*sigtrace[i])
     ybhi = round(recim.ny/2+3*sigtrace[i])
-    back = [recflux[0:yblo-1],recflux[ybhi+1:*]]
-    backmask = [recmask[0:yblo-1],recmask[ybhi+1:*]]
+    back = recflux[0:yblo-1]
+    backmask = recmask[0:yblo-1]
+    if ybhi lt recim.ny-5 then begin
+      back = [back,recflux[ybhi+1:*]]
+      backmask = [backmask,recmask[ybhi+1:*]]
+    endif
     gdback = where(backmask eq 1,ngdback)
     medback = 0.0
     if ngdback gt 0 then medback=median(back[gdback])
