@@ -226,6 +226,12 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
     endif
   endfor
 
+  ;; Get rid of bad lines
+  bd = where(linestr.pars[0] le 0.0,nbd)
+  if nbd gt 0 then begin
+    if nbd eq n_elements(linestr) then undefine,linestr else remove,bd,linestr
+  endif
+  
   ;; Subtract model from image
   newim = im
   ;; Subtract the 2D line model
