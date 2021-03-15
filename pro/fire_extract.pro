@@ -1,13 +1,25 @@
 pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
-                 moffat=moffat,outdir=outdir,clobber=clobber
+                 moffat=moffat,outdir=outdir,clobber=clobber,norescale=norescale
 
   ;; Not enough inputs
   if n_elements(objfile) eq 0 or n_elements(arcfile) eq 0 then begin
     print,'Syntax - fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,'
-    print,'                      moffat=moffat,outdir=outdir,clobber=clobber'
+    print,'                      moffat=moffat,outdir=outdir,clobber=clobber,norescale=norescale'
     return
   endif
 
+  if file_test(objfile) eq 0 then begin
+    print,objfile,' NOT FOUND'
+    return
+  endif
+  if file_test(arcfile) eq 0 then begin
+    print,arcfile,' NOT FOUND'
+    return
+  endif  
+
+  base = file_basename(objfile,'.fits') ;; obj0238.fits
+  expnum = long(strmid(base,3))         ;; 238
+  
   ;; Defaults
   if n_elements(outdir) eq 0 then outdir='finalspec/'
   ;;;objfile = 'ut131222/fire_0046.fits'
@@ -18,7 +30,7 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
   if n_elements(bndfile) eq 0 then bndfile = 'fire_boundary_0011.fits'
   if n_elements(tracefile) eq 0 then tracefile = 'fire_trace_0084.fits'  
   if n_elements(moffat) eq 0 then moffat=1
-
+  
   ;; Output filename
   base = file_basename(objfile,'.fits')
   outfile = outdir+base+'_spec.fits'
@@ -33,15 +45,28 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
   
   ;; Load the arc linelist
   repodir = '/Users/nidever/projects/firered/'
-  linelist = importascii(repodir+'linelists/thar_linelist.txt',/header)
+  linelist = importascii(repodir+'linelists/thar_linelist.txt',/header,/silent)
   
   ;; Load the data
+  base = file_basename(objfile,'.fits')
   head = headfits(objfile)
   obj = fire_readimage(objfile)
   arc = fire_readimage(arcfile)
-  bstr = mrdfits(bndfile,1)
-  tstr = mrdfits(tracefile,1)  
-  norders = n_elements(bstr)
+  ;;bstr = mrdfits(bndfile,1,/silent)
+  tstr = mrdfits(tracefile,1,/silent)
+  norders = n_elements(tstr)
+
+
+  ;; The traces are shifted for most exposures of the second night
+  ;if expnum ge 110 and expnum le 187 then begin
+  ;  print,'USING SHIFTED TRACES/BOUNDARY FOR NIGHT 2'
+  ;  coef = [-16.7509,      1.15235,   -0.0297803]
+  ;  bstr.y0coef[0] += poly(bstr.order,coef)
+  ;  bstr.y0coef[1] += poly(bstr.order,coef)
+  ;  tstr.bndy0coef[0] += poly(tstr.order,coef)
+  ;  tstr.bndy1coef[0] += poly(tstr.order,coef)
+  ;  tstr.tycoef[0] += poly(tstr.order,coef)
+  ;endif
   
   ;; Order loop
   ;;-----------
@@ -59,12 +84,16 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
   undefine,arclines
   undefine,skylines
   objmodel = obj.flux*0
+  undefine,pdffiles
   ;; skip first order, it has issues
   For i=1,norders-1 do begin
     print,'order = ',strtrim(i+1,2)
     outstr[i].order = i+1 
     ;; Recenter/scale aperture 
-    tstr1 = FIRE_SCALE_TRACE(tstr[i],obj,/pl) ; recenter/scale
+    psfile = 'plots/'+base+'_rescale_order'+strtrim(i+1,2)
+    push,pdffiles,psfile+'.pdf'
+    tstr1 = tstr[i]
+    tstr1 = FIRE_SCALE_TRACE(tstr1,obj,norescale=norescale,/pl,psfile=psfile)
     outstr[i].xlo = tstr1.bndx0
     outstr[i].xhi = tstr1.bndx1
     outstr[i].trecenter = tstr1.recenter
@@ -114,14 +143,14 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
     ;; maybe scale PSF when doing recenter?
     ;; Maye try Moffat function instead
     gline = where(linelist.order eq i+1,ngline)
-    if ngline gt 0 then begin
+    if ngline gt 0 and nalines ge nwaveorder+1 then begin
       linelist1 = linelist[gline]
       ;; match the arc lines
       srcmatch,alinestr.xtrace,alinestr.xtrace*0,linelist1.xpix,linelist1.xpix*0,3.0,ind1,ind2,count=nmatch
       print,'  Matched ',strtrim(nmatch,2),' arc lines'
       sxaddhist,'order '+strtrim(i+1,2)+':  Matched '+strtrim(nmatch,2)+' arc lines',head
       
-      if nmatch gt 0 then begin
+      if nmatch ge nwaveorder+1 then begin
         alinestr2 = alinestr[ind1]
         linelist2 = linelist1[ind2] 
         wcoef = reform( poly_fit(alinestr2.xtrace,linelist2.wave,nwaveorder) )
@@ -139,17 +168,21 @@ pro fire_extract,objfile,arcfile,bndfile=bndfile,tracefile=tracefile,$
 
     ;; Get LSF coef each order
     if nalines gt 0 then begin
-      lsfcoef = reform( robust_poly_fit(alinestr.xtrace,alinestr.pars[1],nlsforder) )
+      if nalines ge 2 then $
+        lsfcoef = reform( robust_poly_fit(alinestr.xtrace,alinestr.pars[1],nlsforder) ) else $
+        lsfcoef = alinestr.pars[1]
       ;glsf = where(alinestr.perror[1] gt 0.0,nglsf)
       ;if nglsf gt 2 then lsfcoef = robust_poly_fit(alinestr[glsf].xtrace,alinestr[glsf].pars[1],nlsforder)
       ;plot,alinestr.xtrace,alinestr.pars[1],ps=8
       ;x = findgen(2048)
       ;oplot,x,poly(x,lsfcoef),co=250
-      sxaddhist,'order '+strtrim(i+1,2)+': mean LSF Gaussian sigma '+stringize(median(alinestr.pars[1]),ndec=3)+' pixels',head
+      sxaddhist,'order '+strtrim(i+1,2)+': mean LSF Gaussian sigma '+stringize(median([alinestr.pars[1]]),ndec=3)+' pixels',head
     endif else lsfcoef = [1.5,0.0]
     outstr[i].lsfcoef = lsfcoef
     
   Endfor  ;; order loop
+
+  PDFCOMBINE,pdffiles,'plots/'+base+'_rescale_comb.pdf',/clobber
   
   ;; Write out the information
   ;FIRE_WRITESPEC,spec,outfile

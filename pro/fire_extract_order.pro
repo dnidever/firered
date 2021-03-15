@@ -99,8 +99,8 @@ pro fire_extract_order,tstr,im,extstr,model,arc=arc,moffat=moffat,yrecenter=yrec
     ;; Boxcar flux
     recflux = reform(recim.flux[i,*])
     recmask = reform(recim.mask[i,*])
-    yblo = round(recim.ny/2-3*sigtrace[i])
-    ybhi = round(recim.ny/2+3*sigtrace[i])
+    yblo = round(recim.ny/2-3*sigtrace[i]) > 0
+    ybhi = round(recim.ny/2+3*sigtrace[i]) < (recim.ny-1)
     back = recflux[0:yblo-1]
     backmask = recmask[0:yblo-1]
     if ybhi lt recim.ny-5 then begin

@@ -1,9 +1,9 @@
-pro fire_boundary_orders
+pro fire_boundary_orders,file
 
   ;; Get boundaries for the orders
 
   ;;file = 'ut131222/fire_0001.fits'
-  file = 'ut131222/fire_0011.fits'  
+  if n_elements(file) eq 0 then file = 'ut131222/fire_0011.fits'    
   fits_read,file,im,head
 
   norders = 22

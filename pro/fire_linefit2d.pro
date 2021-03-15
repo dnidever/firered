@@ -231,6 +231,7 @@ pro fire_linefit2d,tstr0,im,newim,linestr,model,residim,lmodel,count=nlines,yrec
   if nbd gt 0 then begin
     if nbd eq n_elements(linestr) then undefine,linestr else remove,bd,linestr
   endif
+  nlines = n_elements(linestr)
   
   ;; Subtract model from image
   newim = im
